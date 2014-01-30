@@ -1,0 +1,19 @@
+{
+  "name": "onmexpresstest0",
+  "version": "0.0.0",
+  "description": "Simple onm / express test app.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ChrisRus/onmexpresstest0.git"
+  },
+  "author": "ChrisRus",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ChrisRus/onmexpresstest0/issues"
+  },
+  "homepage": "https://github.com/ChrisRus/onmexpresstest0"
+}
