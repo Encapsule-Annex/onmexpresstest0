@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/ChrisRus/onmexpresstest0/issues"
   },
-  "homepage": "https://github.com/ChrisRus/onmexpresstest0"
+  "homepage": "https://github.com/ChrisRus/onmexpresstest0",
+  "dependencies": {
+    "onm": "~0.1.8"
+  }
 }
