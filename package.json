@@ -1,6 +1,6 @@
 {
   "name": "onmexpresstest0",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Simple onm/express test app.",
   "private": true,
   "scripts": {
