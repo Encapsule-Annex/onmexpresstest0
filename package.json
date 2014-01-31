@@ -1,10 +1,11 @@
 {
   "name": "onmexpresstest0",
-  "version": "0.0.0",
-  "description": "Simple onm / express test app.",
-  "main": "server.js",
+  "version": "0.0.1",
+  "description": "Simple onm/express test app.",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
@@ -17,6 +18,8 @@
   },
   "homepage": "https://github.com/ChrisRus/onmexpresstest0",
   "dependencies": {
-    "onm": "~0.1.8"
+    "onm": "~0.1.8",
+    "express": "3.4.8",
+    "jade": "*"
   }
 }
