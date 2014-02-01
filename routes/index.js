@@ -4,5 +4,9 @@
  */
 
 exports.index = function(req, res){
-  res.render('index', { title: 'Express' });
+  appJSON = require('../package.json');
+  res.render('index', { 
+      title: appJSON.name + ' v' + appJSON.version,
+      description: appJSON.description
+ });
 };

@@ -1,5 +1,43 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+  h1= title 
+  i= description
+  p
+    | This node.js application leverages the Object Namespace Manager (onm) package
+    | to implement a web server process that exposes access 
+    | to a shared, server-side, in-memory data store containing some data via a
+    | simple API.
+  p
+    | In more detail, this app maintains an 
+    strong onm.Store 
+    | object instance in memory for the duration of the server process that is bound 
+    | to the SCDL data model.
+
+  h2 GET API (application/json responses)
+  p
+    a(href="./model") GET ./model 
+    | - JSON serialization of the SCDL data model.
+  p
+    a(href="./data") GET ./data 
+    | - JSON serialization of the onm.Store instance.
+  p
+    a(href="./meta") GET ./meta 
+    | - JSON serialization of node.js packages required by a client app.
+  h2 POST API (application/json response)
+  p
+    form(name="newCatalogue", action="./catalogue" method="post")
+      | create a new 'catalogue' object in onm.Store instance.
+      br
+      input(type="submit", value="create catalogue")
+  p
+    form(name="clearCatalogues", action="./reset" method="post")
+      | delete all 'catalogue' objects in the onm.Store instance.
+      br
+      input(type="submit", value="delete all catalogues")
+
+
+
+
+
+
