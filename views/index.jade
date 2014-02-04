@@ -1,9 +1,12 @@
 extends layout
 
 block content
-  h1= title 
-  i= description
+  h1= title
   p
+    | Sources: 
+    a(href="https://github.com/ChrisRus/onmexpresstest0", title="https://github.com/ChrisRus/onmexpresstest0")
+     | ChrisRus/onmexpresstest0
+  p| 
     | This node.js application leverages the Object Namespace Manager (onm) package
     | to implement a web server process that exposes access 
     | to a shared, server-side, in-memory data store containing some data via a

@@ -22,6 +22,7 @@
     "onm": "~0.1.8",
     "express": "3.4.8",
     "jade": "*",
-    "onmd-scdl": "0.0.6"
+    "onmd-scdl": "0.0.6",
+    "node-uuid": "~1.4.1"
   }
 }
