@@ -30,17 +30,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', routes.index);
 app.get('/users', user.list);
 
-
 // API for experimenting with shared onm data store instances in node.js.
+app.get('/meta', models.getAppMeta);                                          // GET a JSON container of information about this app.
 app.get('/models', models.getModels);                                         // GET a JSON array containing this node's supported onm data models.
 app.get('/stores', models.getStores);                                         // GET a JSON array containing this node's memory-resident onm data stores.
 app.get('/store/addresses/:store', models.getStoreAddresses);                 // GET a JSON array containing the specified onm data store's namespace addresses.
 app.get('/store/addresses/:store/:address', models.getStoreAddresses);        // GET a JSON array containing the specified onm data store's namespace addresses starting at the specified address.
-app.get('/store/data/:store', models.getStoreData)                            // GET the specifed onm data store's JSON serialization.
+app.get('/store/data/:store', models.getStoreData);                           // GET the specifed onm data store's JSON serialization.
 app.get('/store/data/:store/:address', models.getStoreData);                  // GET the specified onm data store's JSON serializaton starting at the specified address.
 app.post('/store/create/:model', models.postCreateStore);                     // POST to create a new onm data store using the specified onm data model. This API is _not_ idempotent.
 app.post('/store/data/:store/:address', models.postCreateComponent);          // POST to create a store store component at the specified unresolved address. This method is _not_ idempotent.
-app.post('/store/data/:store/:address/:data', models.postReplaceComponent);   // PUT to overwrite the store component data at the specified address. This method is idempotent iff the store is unobserved. Otherwise, it depends.
+app.post('/store/data/:store/:address/:data', models.postNamespaceData);      // POST to overwrite the store component data at the specified address. This method is idempotent iff the store is unobserved. Otherwise, it depends.
 app.delete('/stores', models.deleteStores);                                   // DELETE all in-memory stores
 app.delete('/store/:store' , models.deleteStore);                             // DELETE the specified in-memory store
 app.delete('/store/:store/:address', models.deleteStore);                     // DELETE the specified data component in the indicated in-memory store.

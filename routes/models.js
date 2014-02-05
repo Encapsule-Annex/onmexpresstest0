@@ -11,6 +11,7 @@ public.models['scdl'] = {
 
 public.stores = {};
 
+// Keep this. Reconnect with some consideration to naming.
 exports.getAppMeta = function(req, res) {
     var packages = {};
     appJSON = require('../package.json');
@@ -20,62 +21,11 @@ exports.getAppMeta = function(req, res) {
     res.send(packages);
 };
 
-// deprecated
-exports.getScdlModel = function(req, res) {
-    scdlModelDeclaration = require('onmd-scdl').DataModel;
-    res.send(scdlModelDeclaration);
-};
-
-// depracated
-exports.getCatalogueData = function(req, res) {
-    res.send(scdlStore.implementation.dataReference);
-};
-
-// deprecated
-exports.postCatalogue = function(req, res) {
-    if (countCatalogues >= countCataloguesLimit) {
-        var model = addressCatalogueNew.getModel();
-        var message = "The server-imposed limit of " + countCataloguesLimit +
-            " " + model.jsonTag + " objects has been reached.";
-	res.send(503, message);
-    }
-    var namespaceCatalogue = scdlStore.createComponent(addressCatalogueNew);
-    var addressCatalogue = namespaceCatalogue.getResolvedAddress();
-    var modelCatalogue = addressCatalogue.getModel();
-    var dataObject = {};
-    dataObject[modelCatalogue.jsonTag] = namespaceCatalogue.implementation.dataReference;
-    res.send(dataObject);
-    countCatalogues++;
-    console.log("... created object " + namespaceCatalogue.getResolvedAddress().getHashString());
-};
-
-// deprecated
-exports.postReset = function(req, res) {
-    var addressCatalogues = scdlModel.createPathAddress("scdl.catalogues");
-    var namespaceCatalogues = scdlStore.openNamespace(addressCatalogues);
-    namespaceCatalogues.visitExtensionPointSubcomponents( function (address) {
-        console.log("... removed object " + address.getHashString());
-        scdlStore.removeComponent(address);
-    });
-    countCatalogues = 0;
-    res.send(scdlStore.implementation.dataReference);
-};
-
-
-// NEW STUFF
-
-exports.getStores = function(req, res) {
-    var stores = [];
-    for (key in public.stores) {
-        var storeRecord = {
-            dataModel: public.stores[key].model.jsonTag,
-            storeKey: key
-	};
-        stores.push(storeRecord);
-    }
-    res.send(200, stores);
-};
-
+// Enumerate the onm data models supported by this node instance.
+// Use the data model to create an onm store via POST /store/create/:model
+//
+// app.get('/models', models.getModels);
+//
 exports.getModels = function(req, res) {
     var models = [];
     for (modelName in public.models) {
@@ -88,6 +38,30 @@ exports.getModels = function(req, res) {
     res.send(200, models);
 };
 
+
+// Enumerate the in-memory onm stores managed by this node instance.
+//
+// app.get('/stores', models.getStores);
+//
+exports.getStores = function(req, res) {
+    var stores = [];
+    for (key in public.stores) {
+        var storeRecord = {
+            dataModel: public.stores[key].model.jsonTag,
+            storeKey: key
+	};
+        stores.push(storeRecord);
+    }
+    res.send(200, stores);
+};
+
+// Traverse the namespace structure of the specified store starting at the given
+// address (or the root address of the store if unspecified). Return an array of
+// onm.Address hash strings for each namespace.
+//
+// app.get('/store/addresses/:store', models.getStoreAddresses);
+// app.get('/store/addresses/:store/:address', models.getStoreAddresses);
+//
 exports.getStoreAddresses = function(req, res) {
     var store = public.stores[req.params.store];
     if (store === void 0) {
@@ -116,21 +90,22 @@ exports.getStoreAddresses = function(req, res) {
                     });
 		}
 	    };
-
             processNamespace(address);
             var result = {};
             result[req.params.store] = addresses;
-
             res.send(200, result);
-
-
-
 	} catch (exception) {
             res.send(412, exception);
 	}
     }
 };
 
+// Retrieve the JSON serialization of the given store, or the serialization of
+// the given sub-namespace of the store (if specified).
+//
+// app.get('/store/data/:store', models.getStoreData);
+// app.get('/store/data/:store/:address', models.getStoreData);
+//
 exports.getStoreData = function(req, res) {
     var store = public.stores[req.params.store];
     if (store === void 0) {
@@ -150,7 +125,10 @@ exports.getStoreData = function(req, res) {
     }
 };
 
-
+// Create a new in-memory data store instance using the the indicated onm data model.
+//
+// app.post('/store/create/:model', models.postCreateStore);
+//
 exports.postCreateStore = function(req, res) {
     var onmDataModel = public.models[req.params.model].model;
     if (onmDataModel === void 0) {
@@ -167,6 +145,11 @@ exports.postCreateStore = function(req, res) {
     }
 };
 
+// Create a new component data resource in the indicated store using the specified
+// address hash to indicate the specific component to create.
+//
+// app.post('/store/data/:store/:address', models.postCreateComponent);
+//
 exports.postCreateComponent = function(req, res) {
     var store = public.stores[req.params.store];
     if (store === void 0) {
@@ -181,17 +164,47 @@ exports.postCreateComponent = function(req, res) {
             namespaceRecord['uri'] = namespace.getResolvedAddress().getHashString();
             namespaceRecord[address.getModel().jsonTag] = namespace.implementation.dataReference;
             res.send(200, namespaceRecord);
-
 	} catch (exception) {
             res.send(412, exception);
 	}
     }
 };
 
-exports.postReplaceComponent = function(req, res) {
-    res.send(200, "putComponentData");
+// Overwrite a specific data component in a specific store.
+//
+// app.post('/store/data/:store/:address/:data', models.postNamespaceData);
+//
+exports.postNamespaceData = function(req, res) {
+    var store = public.stores[req.params.store];
+    if (store === void 0) {
+        res.send(404, "No such data store.");
+        return;
+    }
+
+    var addressHash = req.params.address || store.model.jsonTag;
+    var address = undefined;
+    try {
+        address = store.model.createAddressFromHashString(addressHash);
+    } catch (exception) {
+        res.send(404, "No such address in data model: " + exception);
+        return;
+    }
+
+    var newDataObject = undefined;
+    try {
+        newDataObject = JSON.parse(req.params.data);
+    } catch (exception) {
+        res.send(400, "JSON data parse failed: " + exception);
+        return;
+    }
+
+    res.send(501, addressHash);
 };
 
+// Delete all in-memory onm data stores. Expose w/caution.
+//
+// app.delete('/stores', models.deleteStores);
+//
 exports.deleteStores = function(req, res) {
     for (storeKey in public.stores) {
         console.log("deleting in-memory data store '" + storeKey + "'.");
@@ -200,6 +213,12 @@ exports.deleteStores = function(req, res) {
     res.send(204);
 };
 
+// Delete the named onm data store. Or, if an address is specified delete
+// the addressed data component in the given store instead.
+//
+// app.delete('/store/:store' , models.deleteStore);
+// app.delete('/store/:store/:address', models.deleteStore);
+// 
 exports.deleteStore = function(req, res) {
     var store = public.stores[req.params.store];
     if (store === void 0) {
@@ -210,7 +229,16 @@ exports.deleteStore = function(req, res) {
             delete public.stores[req.params.store];
             res.send(204);
         } else {
-            res.send(501);
+            var addressHash = req.params.address || store.model.jsonTag;
+            var address = undefined
+            try {
+                address = store.model.createAddressFromHashString(addressHash);
+                console.log("removing data component '" + addressHash + "' from in-memory store.");
+                store.removeComponent(address);
+                res.send(204);
+            } catch (exception) {
+                res.send(412, exception);
+	    }
 	}
     }
 };
