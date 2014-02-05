@@ -11,16 +11,6 @@ public.models['scdl'] = {
 
 public.stores = {};
 
-
-
-var scdlModel = new onm.Model(require('onmd-scdl').DataModel);
-var scdlStore = new onm.Store(scdlModel);
-
-var countCatalogues = 0;
-var countCataloguesLimit = 5;
-
-var addressCatalogueNew = scdlModel.createPathAddress("scdl.catalogues.catalogue");
-
 exports.getAppMeta = function(req, res) {
     var packages = {};
     appJSON = require('../package.json');
@@ -30,15 +20,18 @@ exports.getAppMeta = function(req, res) {
     res.send(packages);
 };
 
+// deprecated
 exports.getScdlModel = function(req, res) {
     scdlModelDeclaration = require('onmd-scdl').DataModel;
     res.send(scdlModelDeclaration);
 };
 
+// depracated
 exports.getCatalogueData = function(req, res) {
     res.send(scdlStore.implementation.dataReference);
 };
 
+// deprecated
 exports.postCatalogue = function(req, res) {
     if (countCatalogues >= countCataloguesLimit) {
         var model = addressCatalogueNew.getModel();
@@ -56,6 +49,7 @@ exports.postCatalogue = function(req, res) {
     console.log("... created object " + namespaceCatalogue.getResolvedAddress().getHashString());
 };
 
+// deprecated
 exports.postReset = function(req, res) {
     var addressCatalogues = scdlModel.createPathAddress("scdl.catalogues");
     var namespaceCatalogues = scdlStore.openNamespace(addressCatalogues);
@@ -66,6 +60,7 @@ exports.postReset = function(req, res) {
     countCatalogues = 0;
     res.send(scdlStore.implementation.dataReference);
 };
+
 
 // NEW STUFF
 
@@ -96,11 +91,43 @@ exports.getModels = function(req, res) {
 exports.getStoreAddresses = function(req, res) {
     var store = public.stores[req.params.store];
     if (store === void 0) {
-        res.send(404, "No such store '" + req.params.store + "' on this server.");
+        res.send(404, "Data store '" + req.params.store + "' does not exist.");
     } else {
-        var address = req.params.address || "0";
-        var message = "getStoreAddress('" + req.params.store + "', '" + address + "')";
-        res.send(200, message);
+        var addressHash = req.params.address || store.model.jsonTag;
+        address = undefined
+        try {
+            address = store.model.createAddressFromHashString(addressHash);
+            var namespace = store.openNamespace(address);
+            
+            var addresses = [];
+
+            var processNamespace = function (address_) {
+                addresses.push(address_.getHashString());
+                var model = address_.getModel();
+                if (model.namespaceType === "extensionPoint") {
+                    var namespace = store.openNamespace(address_);
+                    namespace.visitExtensionPointSubcomponents( function(address_) {
+                        processNamespace(address_);
+		    });
+
+		} else {
+                    address_.visitChildAddresses( function(address_) {
+                        processNamespace(address_);
+                    });
+		}
+	    };
+
+            processNamespace(address);
+            var result = {};
+            result[req.params.store] = addresses;
+
+            res.send(200, result);
+
+
+
+	} catch (exception) {
+            res.send(412, exception);
+	}
     }
 };
 
@@ -109,9 +136,17 @@ exports.getStoreData = function(req, res) {
     if (store === void 0) {
         res.send(404, "No such store '" + req.params.store + "' on this server.");
     } else {
-        var address = req.params.address || store.model.jsonTag;
-        console.log("attempting to open '" + req.params.store + "::" + address + "'.");
-        res.send(200, store.implementation.dataReference);
+        var addressHash = req.params.address || store.model.jsonTag;
+        var address = undefined;
+        try {
+            address = store.model.createAddressFromHashString(addressHash);
+            var namespace = store.openNamespace(address);
+            var data = {};
+            data[address.getModel().jsonTag] = namespace.implementation.dataReference;
+            res.send(200, data);
+	} catch (exception) {
+            res.send(412, exception);
+	}
     }
 };
 
@@ -132,11 +167,28 @@ exports.postCreateStore = function(req, res) {
     }
 };
 
-exports.postCreateComponent=  function(req, res) {
-    res.send(501);
+exports.postCreateComponent = function(req, res) {
+    var store = public.stores[req.params.store];
+    if (store === void 0) {
+        res.send(404);
+    } else {
+        var addressHash = req.params.address || store.model.jsonTag;
+        var address = undefined
+        try {
+            address = store.model.createAddressFromHashString(addressHash);
+            var namespace = store.createComponent(address)
+            var namespaceRecord = {};
+            namespaceRecord['uri'] = namespace.getResolvedAddress().getHashString();
+            namespaceRecord[address.getModel().jsonTag] = namespace.implementation.dataReference;
+            res.send(200, namespaceRecord);
+
+	} catch (exception) {
+            res.send(412, exception);
+	}
+    }
 };
 
-exports.putComponentData = function(req, res) {
+exports.postReplaceComponent = function(req, res) {
     res.send(200, "putComponentData");
 };
 
