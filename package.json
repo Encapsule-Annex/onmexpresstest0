@@ -1,9 +1,9 @@
 {
   "name": "onmexpresstest0",
-  "version": "0.0.5",
-  "description": "Simple onm/express test app for node.js.",
+  "version": "0.0.6",
+  "description": "Generic data test server based on express and onm node.js packages.",
   "private": true,
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js"
@@ -19,10 +19,10 @@
   },
   "homepage": "https://github.com/ChrisRus/onmexpresstest0",
   "dependencies": {
-    "onm": "~0.1.9",
     "express": "3.4.8",
     "jade": "*",
-    "onmd-scdl": "0.0.6",
+    "onm": "Encapsule/onm",
+    "onmd-scdl": "Encapsule/onmd-scdl",
     "node-uuid": "~1.4.1"
   }
 }

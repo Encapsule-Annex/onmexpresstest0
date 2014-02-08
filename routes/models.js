@@ -186,19 +186,30 @@ exports.postNamespaceData = function(req, res) {
     try {
         address = store.model.createAddressFromHashString(addressHash);
     } catch (exception) {
-        res.send(404, "No such address in data model: " + exception);
+        console.error(exception);
+        res.send(403, "Invalid address outside of model's address space.");
         return;
     }
 
-    var newDataObject = undefined;
+    var namespace = undefined
     try {
-        newDataObject = JSON.parse(req.params.data);
+        namespace = store.openNamespace(address);
     } catch (exception) {
-        res.send(400, "JSON data parse failed: " + exception);
+        console.error(exception);
+        res.send(404, "Data component not found in store.");
         return;
     }
 
-    res.send(501, addressHash);
+
+    try {
+        namespace.fromJSON(req.params.data);
+    } catch (exception) {
+        console.error(exception);
+        res.send(400, "Unable to de-serialize JSON data in request.");
+        return;
+    }
+
+    res.send(204);
 };
 
 // Delete all in-memory onm data stores. Expose w/caution.
