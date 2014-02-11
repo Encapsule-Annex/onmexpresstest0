@@ -10,34 +10,47 @@ block content
   p This is a test application for experimenting with node.js, Express, and Object Namespace Manager (onm).
   p This HTML page is only for documentation purposes. Access to the applciation is via the following
     | web API's:
+
   h2 API
-  p Access to this server is via HTTP methods.
 
   h3 GET host:1031/meta
+  p Obtain information about this node server process.
 
   h3 GET host:1031/models
+  p Enmerate the onm data model(s) supported by this node server process.
 
   h3 GET host:1031/stores
+  p Enumerate the onm data store(s) currently hosted by this node server process.
 
-  h3 GET host:1031/store/addresses/:store
+  h3 GET host:1031/addresses/:store?
+  p Enumerate the data namespace addresses in the specified onm data store.
 
-  h3 GET host:1013/store/addresses/:store/:address
+  h3 GET host:1013/addresses/:store?/:address?
+  p Enumerate the data namespace addresses in the specified onm data store starting at the indicated address.
 
-  h3 GET host:1031/store/data/:store
+  h3 GET host:1031/data/data/:store?
+  p Retrieve the serialized contents of the specified onm data store.
 
-  h3 GET host:1031/store/data/:store/:address
+  h3 GET host:1031/data/:store?/:address?
+  p Retrieve the serialized contents of a specific data namespace in the indicated data store.
 
-  h3 POST host:1031:/store/create/:model
+  h3 POST host:1031:/create/store/:model?
+  p Create a new memory-resident onm data store bound to the specified onm data model.
 
-  h3 POST host:1031/store/data/:store/:address
+  h3 POST host:1031/create/component/:store?/:address?
+  p Create the data component specified by address in the store indicated by the store parameter.
 
-  h3 POST host:1031/store/data/:store/:address/:data
+  h3 POST host:1031/update/component/:store?/:address?/:data?
+  p Update the specified component's data.
 
-  h3 DELETE host:1031/stores
+  h3 DELETE host:1031/remove/stores
+  p Delete all onm data store instances currently hosted by this node server process.
 
-  h3 DELETE host:1031/store/:store
+  h3 DELETE host:1031/remove/:store?
+  p Delete a specific onm data store instance.
 
-  h3 DELETE host:1031/store/:store/:address
+  h3 DELETE host:1031/remove/component/:store?/:address?
+  p Delete a specific onm data component instance from an onm data store.
 
 
   

@@ -45,7 +45,6 @@ app.get('/data/:store?/:address?', models.getStoreData);                        
 app.post('/create/store/:model?', models.postCreateStore);                        // POST to create a new onm data store using the specified onm data model.
 app.post('/create/component/:store?/:address?', models.postCreateComponent);      // POST to create a store store component at the specified unresolved address.
 app.post('/update/component/:store?/:address?/:data?', models.postNamespaceData); // POST to overwrite the store component data at the specified address.
-
 app.delete('/remove/stores', models.deleteStores);                                // DELETE all in-memory stores.
 app.delete('/remove/store/:store?' , models.deleteStore);                         // DELETE the specified in-memory store.
 app.delete('/remove/component/:store?/:address?', models.deleteStore);            // DELETE the specified data component in the indicated in-memory store.
