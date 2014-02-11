@@ -59,15 +59,15 @@ exports.getStores = function(req, res) {
 // address (or the root address of the store if unspecified). Return an array of
 // onm.Address hash strings for each namespace.
 //
-// app.get('/store/addresses/:store', models.getStoreAddresses);
-// app.get('/store/addresses/:store/:address', models.getStoreAddresses);
+// app.get('/addresses/:store?', models.getStoreAddresses);
+// app.get('/addresses/:store?/:address?', models.getStoreAddresses);
 //
 exports.getStoreAddresses = function(req, res) {
-    var store = public.stores[req.params.store];
+    var store = public.stores[req.query.store];
     if (store === void 0) {
-        res.send(404, "Data store '" + req.params.store + "' does not exist.");
+        res.send(404, "Data store '" + req.query.store + "' does not exist.");
     } else {
-        var addressHash = req.params.address || store.model.jsonTag;
+        var addressHash = req.query.address || store.model.jsonTag;
         address = undefined
         try {
             address = store.model.createAddressFromHashString(addressHash);
@@ -92,7 +92,7 @@ exports.getStoreAddresses = function(req, res) {
 	    };
             processNamespace(address);
             var result = {};
-            result[req.params.store] = addresses;
+            result[req.query.store] = addresses;
             res.send(200, result);
 	} catch (exception) {
             res.send(412, exception);
@@ -103,15 +103,15 @@ exports.getStoreAddresses = function(req, res) {
 // Retrieve the JSON serialization of the given store, or the serialization of
 // the given sub-namespace of the store (if specified).
 //
-// app.get('/store/data/:store', models.getStoreData);
-// app.get('/store/data/:store/:address', models.getStoreData);
+// app.get('/data/:store?', models.getStoreData);
+// app.get('/data/:store?/:address?', models.getStoreData);
 //
 exports.getStoreData = function(req, res) {
-    var store = public.stores[req.params.store];
+    var store = public.stores[req.query.store];
     if (store === void 0) {
-        res.send(404, "No such store '" + req.params.store + "' on this server.");
+        res.send(404, "No such store '" + req.query.store + "' on this server.");
     } else {
-        var addressHash = req.params.address || store.model.jsonTag;
+        var addressHash = req.query.address || store.model.jsonTag;
         var address = undefined;
         try {
             address = store.model.createAddressFromHashString(addressHash);
@@ -130,19 +130,20 @@ exports.getStoreData = function(req, res) {
 // app.post('/store/create/:model', models.postCreateStore);
 //
 exports.postCreateStore = function(req, res) {
-    var onmDataModel = public.models[req.params.model].model;
-    if (onmDataModel === void 0) {
-        res.send(403, "The specified onm data model '" + req.params.model + "' is unsupported by this server.");
-    } else {
-        console.log("jsonTag = " + onmDataModel.jsonTag );
-        var storeUuid = uuid.v4();
-        var store = public.stores[storeUuid] = new onm.Store(onmDataModel);
-        var storeRecord = {
-            dataModel: store.model.jsonTag,
-            storeKey: storeUuid
-	};
-        res.send(200, storeRecord);
+    var onmDataModelRecord = public.models[req.query.model];
+    if ((onmDataModelRecord === void 0) || (onmDataModelRecord.model === void 0)) {
+        res.send(403, "The specified onm data model '" + req.query.model + "' is unsupported by this server.");
+        return;
     }
+    var storeUuid = uuid.v4();
+    var store = public.stores[storeUuid] = new onm.Store(onmDataModelRecord.model);
+    var storeRecord = {
+       dataModel: store.model.jsonTag,
+        storeKey: storeUuid
+    }
+    console.log("created in-memory data store '" + storeUuid + "'.");
+    res.send(200, storeRecord);
+
 };
 
 // Create a new component data resource in the indicated store using the specified
@@ -151,11 +152,11 @@ exports.postCreateStore = function(req, res) {
 // app.post('/store/data/:store/:address', models.postCreateComponent);
 //
 exports.postCreateComponent = function(req, res) {
-    var store = public.stores[req.params.store];
+    var store = public.stores[req.query.store];
     if (store === void 0) {
         res.send(404);
     } else {
-        var addressHash = req.params.address || store.model.jsonTag;
+        var addressHash = req.query.address
         var address = undefined
         try {
             address = store.model.createAddressFromHashString(addressHash);
@@ -175,13 +176,13 @@ exports.postCreateComponent = function(req, res) {
 // app.post('/store/data/:store/:address/:data', models.postNamespaceData);
 //
 exports.postNamespaceData = function(req, res) {
-    var store = public.stores[req.params.store];
+    var store = public.stores[req.query.store];
     if (store === void 0) {
         res.send(404, "No such data store.");
         return;
     }
 
-    var addressHash = req.params.address || store.model.jsonTag;
+    var addressHash = req.query.address
     var address = undefined;
     try {
         address = store.model.createAddressFromHashString(addressHash);
@@ -200,9 +201,8 @@ exports.postNamespaceData = function(req, res) {
         return;
     }
 
-
     try {
-        namespace.fromJSON(req.params.data);
+        namespace.fromJSON(req.query.data);
     } catch (exception) {
         console.error(exception);
         res.send(400, "Unable to de-serialize JSON data in request.");
@@ -231,16 +231,16 @@ exports.deleteStores = function(req, res) {
 // app.delete('/store/:store/:address', models.deleteStore);
 // 
 exports.deleteStore = function(req, res) {
-    var store = public.stores[req.params.store];
+    var store = public.stores[req.query.store];
     if (store === void 0) {
         res.send(404);
     } else {
         if (req.params.address === void 0) {
             console.log("deleting in-memory data store '" + store + "'.");
-            delete public.stores[req.params.store];
+            delete public.stores[req.query.store];
             res.send(204);
         } else {
-            var addressHash = req.params.address || store.model.jsonTag;
+            var addressHash = req.query.address
             var address = undefined
             try {
                 address = store.model.createAddressFromHashString(addressHash);

@@ -1,4 +1,3 @@
-
 /**
  * Module dependencies.
  */
@@ -36,19 +35,20 @@ app.get('/users', user.list);
 // GET, and DELETE methods are idempotent.
 // POST methods are not idempotent [1]
 
-app.get('/meta', models.getAppMeta);                                          // GET a JSON container of information about this app.
-app.get('/models', models.getModels);                                         // GET a JSON array containing this node's supported onm data models.
-app.get('/stores', models.getStores);                                         // JSON array containing this node's memory-resident onm data stores.
-app.get('/store/addresses/:store', models.getStoreAddresses);                 // GET a JSON array containing the specified onm data store's namespace addresses.
-app.get('/store/addresses/:store/:address', models.getStoreAddresses);        // GET a JSON array containing the specified onm data store's namespace addresses starting at the specified address.
-app.get('/store/data/:store', models.getStoreData);                           // GET the specifed onm data store's JSON serialization.
-app.get('/store/data/:store/:address', models.getStoreData);                  // GET the specified onm data store's JSON serializaton starting at the specified address.
-app.post('/store/create/:model', models.postCreateStore);                     // POST to create a new onm data store using the specified onm data model.
-app.post('/store/data/:store/:address', models.postCreateComponent);          // POST to create a store store component at the specified unresolved address.
-app.post('/store/data/:store/:address/:data', models.postNamespaceData);      // POST to overwrite the store component data at the specified address.
-app.delete('/stores', models.deleteStores);                                   // DELETE all in-memory stores.
-app.delete('/store/:store' , models.deleteStore);                             // DELETE the specified in-memory store.
-app.delete('/store/:store/:address', models.deleteStore);                     // DELETE the specified data component in the indicated in-memory store.
+app.get('/meta', models.getAppMeta);                                              // GET a JSON container of information about this app.
+app.get('/models', models.getModels);                                             // GET a JSON array containing this node's supported onm data models.
+app.get('/stores', models.getStores);                                             // GET a JSON array containing this node's memory-resident onm data stores.
+app.get('/addresses/:store?', models.getStoreAddresses);                          // GET a JSON array containing all the addresses in the specified store.
+app.get('/addresses/:store?/:address?', models.getStoreAddresses);                // GET a JSON array containing all the addresses in the specified store starting at the given address.
+app.get('/data/:store?', models.getStoreData);                                    // GET a JSON object containing the serialized contents of the specified store.
+app.get('/data/:store?/:address?', models.getStoreData);                          // GET a JSON object containing the serialized contents of the specified store namespace.
+app.post('/create/store/:model?', models.postCreateStore);                        // POST to create a new onm data store using the specified onm data model.
+app.post('/create/component/:store?/:address?', models.postCreateComponent);      // POST to create a store store component at the specified unresolved address.
+app.post('/update/component/:store?/:address?/:data?', models.postNamespaceData); // POST to overwrite the store component data at the specified address.
+
+app.delete('/remove/stores', models.deleteStores);                                // DELETE all in-memory stores.
+app.delete('/remove/store/:store?' , models.deleteStore);                         // DELETE the specified in-memory store.
+app.delete('/remove/component/:store?/:address?', models.deleteStore);            // DELETE the specified data component in the indicated in-memory store.
 
 // [1] there are some special cases where updating a component's
 // data via POST is idempotent. Specifically, if onm namespace
