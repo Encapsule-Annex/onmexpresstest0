@@ -4,8 +4,7 @@
 
 var express = require('express');
 var routes = require('./routes');
-var user = require('./routes/user');
-var models = require('./routes/models');
+var onmApi = require('./routes/onm-api');
 var http = require('http');
 var path = require('path');
 
@@ -24,10 +23,7 @@ app.use(express.methodOverride());
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 
-// this is where the errorHandler was
-
 app.get('/', routes.index);
-app.get('/users', user.list);
 
 // API for experimenting with shared onm data store instances in node.js.
 //
@@ -35,19 +31,17 @@ app.get('/users', user.list);
 // GET, and DELETE methods are idempotent.
 // POST methods are not idempotent [1]
 
-app.get('/meta', models.getAppMeta);                                              // GET a JSON container of information about this app.
-app.get('/models', models.getModels);                                             // GET a JSON array containing this node's supported onm data models.
-app.get('/stores', models.getStores);                                             // GET a JSON array containing this node's memory-resident onm data stores.
-app.get('/addresses/:store?', models.getStoreAddresses);                          // GET a JSON array containing all the addresses in the specified store.
-app.get('/addresses/:store?/:address?', models.getStoreAddresses);                // GET a JSON array containing all the addresses in the specified store starting at the given address.
-app.get('/data/:store?', models.getStoreData);                                    // GET a JSON object containing the serialized contents of the specified store.
-app.get('/data/:store?/:address?', models.getStoreData);                          // GET a JSON object containing the serialized contents of the specified store namespace.
-app.post('/create/store/:model?', models.postCreateStore);                        // POST to create a new onm data store using the specified onm data model.
-app.post('/create/component/:store?/:address?', models.postCreateComponent);      // POST to create a store store component at the specified unresolved address.
-app.post('/update/component/:store?/:address?/:data?', models.postNamespaceData); // POST to overwrite the store component data at the specified address.
-app.delete('/remove/stores', models.deleteStores);                                // DELETE all in-memory stores.
-app.delete('/remove/store/:store?' , models.deleteStore);                         // DELETE the specified in-memory store.
-app.delete('/remove/component/:store?/:address?', models.deleteStore);            // DELETE the specified data component in the indicated in-memory store.
+app.get('/meta', onmApi.getAppMeta);                                              // GET a JSON container of information about this app.
+app.get('/models', onmApi.getModels);                                             // GET a JSON array containing this node's supported onm data models.
+app.get('/stores', onmApi.getStores);                                             // GET a JSON array containing this node's memory-resident onm data stores.
+app.get('/addresses/:store?/:address?', onmApi.getStoreAddresses);                // GET a JSON array containing all the addresses in the specified store starting at the given address.
+app.get('/data/:store?/:address?', onmApi.getStoreData);                          // GET a JSON object containing the serialized contents of the specified store namespace.
+app.post('/create/store/:model?', onmApi.postCreateStore);                        // POST to create a new onm data store using the specified onm data model.
+app.post('/create/component/:store?/:address?', onmApi.postCreateComponent);      // POST to create a store store component at the specified unresolved address.
+app.post('/update/component/:store?/:address?/:data?', onmApi.postNamespaceData); // POST to overwrite the store component data at the specified address.
+app.delete('/remove/stores', onmApi.deleteStores);                                // DELETE all in-memory stores.
+app.delete('/remove/store/:store?' , onmApi.deleteStore);                         // DELETE the specified in-memory store.
+app.delete('/remove/component/:store?/:address?', onmApi.deleteStore);            // DELETE the specified data component in the indicated in-memory store.
 
 // [1] there are some special cases where updating a component's
 // data via POST is idempotent. Specifically, if onm namespace
@@ -55,9 +49,6 @@ app.delete('/remove/component/:store?/:address?', models.deleteStore);          
 // the target onm.Store, then the operation is idempotent.
 // You're unlikely to encounter these outside of a test program.
 // So just assume all POST methods are not idempotent.
-
-// Chris moved the error handler down here.
-// (might be wrong?)
 
 // development only
 //if ('development' == app.get('env')) {
