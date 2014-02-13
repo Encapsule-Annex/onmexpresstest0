@@ -64,7 +64,7 @@ exports.getStores = function(req, res) {
 //
 exports.getStoreAddresses = function(req, res) {
     var store = public.stores[req.query.store];
-    if (store === void 0) {
+    if ((store == null) || !store) {
         res.send(404, "Data store '" + req.query.store + "' does not exist.");
     } else {
         var addressHash = req.query.address || store.model.jsonTag;
@@ -108,7 +108,7 @@ exports.getStoreAddresses = function(req, res) {
 //
 exports.getStoreData = function(req, res) {
     var store = public.stores[req.query.store];
-    if (store === void 0) {
+    if ((store == null) || !store) {
         res.send(404, "No such store '" + req.query.store + "' on this server.");
     } else {
         var addressHash = req.query.address || store.model.jsonTag;
@@ -127,12 +127,20 @@ exports.getStoreData = function(req, res) {
 
 // Create a new in-memory data store instance using the the indicated onm data model.
 //
-// app.post('/store/create/:model', models.postCreateStore);
+// app.post('/create/store', models.postCreateStore);
 //
 exports.postCreateStore = function(req, res) {
-    var onmDataModelRecord = public.models[req.query.model];
-    if ((onmDataModelRecord === void 0) || (onmDataModelRecord.model === void 0)) {
-        res.send(403, "The specified onm data model '" + req.query.model + "' is unsupported by this server.");
+    if (!req._body || (req.body == null) || !req.body) {
+        res.send(400, "Invalid POST missing required request body.");
+        return;
+    }
+    if ((req.body.model == null) || !req.body.model) {
+        res.send(400, "Invalid POST missing 'model' property in request body.");
+        return;
+    }
+    var onmDataModelRecord = public.models[req.body.model];
+    if ((onmDataModelRecord == null) || !onmDataModelRecord || (onmDataModelRecord.model == null) || !onmDataModelRecord.model) {
+        res.send(403, "The specified onm data model '" + req.body.model + "' is unsupported by this server.");
         return;
     }
     var storeUuid = uuid.v4();
@@ -143,52 +151,85 @@ exports.postCreateStore = function(req, res) {
     }
     console.log("created in-memory data store '" + storeUuid + "'.");
     res.send(200, storeRecord);
-
 };
 
 // Create a new component data resource in the indicated store using the specified
 // address hash to indicate the specific component to create.
 //
-// app.post('/store/data/:store/:address', models.postCreateComponent);
+// app.post('/create/component', models.postCreateComponent);
 //
 exports.postCreateComponent = function(req, res) {
-    var store = public.stores[req.query.store];
-    if (store === void 0) {
-        res.send(404);
-    } else {
-        var addressHash = req.query.address
-        var address = undefined
-        try {
-            address = store.model.createAddressFromHashString(addressHash);
-            var namespace = store.createComponent(address)
-            var namespaceRecord = {};
-            namespaceRecord['uri'] = namespace.getResolvedAddress().getHashString();
-            namespaceRecord[address.getModel().jsonTag] = namespace.implementation.dataReference;
-            res.send(200, namespaceRecord);
-	} catch (exception) {
-            res.send(412, exception);
-	}
+    if (!req._body || (req.body == null) || !req.body) {
+        res.send(400, "Invalid POST missing required request body.");
+        return;
+    }
+    if ((req.body.store == null) || !req.body.store) {
+        res.send(400, "Invalid POST mising 'store' property in request body.");
+        return;
+    }
+    if ((req.body.address == null) || !req.body.address) {
+        res.send(400, "Invalid POST missing 'address' property in request body.");
+        return;
+    }
+
+    var store = public.stores[req.body.store];
+    if ((store == null) || !store) {
+        res.send(404, "The specified onm data store '" + req.body.store + "' does not exist on this server.");
+        return;
+    }
+    var address = undefined
+    try {
+        address = store.model.createAddressFromHashString(req.body.address);
+    } catch (exception) {
+        console.error(exception);
+        res.send(403, "Invalid address '" + req.body.address + "' is outside of the data model's address space.");
+        return;
+    }
+    try {
+        var namespace = store.createComponent(address)
+        var namespaceRecord = {};
+        namespaceRecord['address'] = namespace.getResolvedAddress().getHashString();
+        namespaceRecord[address.getModel().jsonTag] = namespace.implementation.dataReference;
+        res.send(200, namespaceRecord);
+    } catch (exception) {
+        res.send(412, exception);
     }
 };
 
 // Overwrite a specific data component in a specific store.
 //
-// app.post('/store/data/:store/:address/:data', models.postNamespaceData);
+// app.post('/store/data', models.postNamespaceData);
 //
-exports.postNamespaceData = function(req, res) {
-    var store = public.stores[req.query.store];
-    if (store === void 0) {
-        res.send(404, "No such data store.");
+exports.postUpdateNamespaceData = function(req, res) {
+    if (!req._body || (req.body == null) || !req.body) {
+        res.send(400, "Invalid POST missing required request body.");
+        return;
+    }
+    if ((req.body.store == null) || !req.body.store) {
+        res.send(400, "Invalid POST mising 'store' property in request body.");
+        return;
+    }
+    if ((req.body.address == null) || !req.body.address) {
+        res.send(400, "Invalid POST missing 'address' property in request body.");
+        return;
+    }
+    if ((req.body.data == null) || !req.body.data) {
+        res.send(400, "Invalid POST missing 'data' property in request body.");
         return;
     }
 
-    var addressHash = req.query.address
+    var store = public.stores[req.body.store];
+    if ((store == null) || !store) {
+        res.send(404, "The specified onm data store '" + req.body.store + "' does not exist on this server.");
+        return;
+    }
+
     var address = undefined;
     try {
-        address = store.model.createAddressFromHashString(addressHash);
+        address = store.model.createAddressFromHashString(req.body.address);
     } catch (exception) {
         console.error(exception);
-        res.send(403, "Invalid address outside of model's address space.");
+        res.send(403, "Invalid address '" + req.body.address + "' is outside of the data model's address space.");
         return;
     }
 
@@ -197,12 +238,12 @@ exports.postNamespaceData = function(req, res) {
         namespace = store.openNamespace(address);
     } catch (exception) {
         console.error(exception);
-        res.send(404, "Data component not found in store.");
+        res.send(404, "Data component '" + req.body.address + "' does not exist in store '" + req.body.store + "'.");
         return;
     }
 
     try {
-        namespace.fromJSON(req.query.data);
+        namespace.fromJSON(req.body.data);
     } catch (exception) {
         console.error(exception);
         res.send(400, "Unable to de-serialize JSON data in request.");
@@ -230,26 +271,42 @@ exports.deleteStores = function(req, res) {
 // app.delete('/store/:store' , models.deleteStore);
 // app.delete('/store/:store/:address', models.deleteStore);
 // 
-exports.deleteStore = function(req, res) {
-    var store = public.stores[req.query.store];
-    if (store === void 0) {
-        res.send(404);
-    } else {
-        if (req.params.address === void 0) {
-            console.log("deleting in-memory data store '" + store + "'.");
-            delete public.stores[req.query.store];
-            res.send(204);
-        } else {
-            var addressHash = req.query.address
-            var address = undefined
-            try {
-                address = store.model.createAddressFromHashString(addressHash);
-                console.log("removing data component '" + addressHash + "' from in-memory store.");
-                store.removeComponent(address);
-                res.send(204);
-            } catch (exception) {
-                res.send(412, exception);
-	    }
-	}
+exports.deleteStoreOrComponent = function(req, res) {
+    if (!req._body || (req.body == null) || !req.body) {
+        res.send(400, "Invalid POST missing required request body.");
+        return;
+    }
+    if ((req.body.store == null) || !req.body.store) {
+        res.send(400, "Invalid POST missing 'store' property in request body.");
+        return;
+    }
+    var store = public.stores[req.body.store];
+    if ((store == null) || !store) {
+        res.send(404, "The specified onm data store '" + req.body.store + "' does not exist on this server.");
+        return;
+    }
+    // Delete the store if an address was not specified in the request body.
+    if ((req.body.address == null) || !req.body.address) {
+        console.log("deleting in-memory data store '" + req.body.store + "'.");
+        delete public.stores[req.body.store];
+        res.send(204);
+        return;
+    }
+    // Attempt to delete the specified data component.
+    var addressHash = req.body.address
+    var address = undefined
+    try {
+        address = store.model.createAddressFromHashString(addressHash);
+    } catch (exception) {
+        console.error(exception);
+        res.send(403, "Invalid address '" + req.body.address + "' is outside of the data model's address space.");
+        return;
+    }
+    try {
+        store.removeComponent(address);
+        console.log("removed data component '" + addressHash + "' from in-memory store '" + req.body.store + "'.");
+        res.send(204);
+    } catch (exception) {
+        res.send(412, exception);
     }
 };

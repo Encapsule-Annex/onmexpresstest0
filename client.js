@@ -10,112 +10,76 @@ var onm = require('onm');
 var scdl = require('onmd-scdl');
 
 
-// GET /meta
-var getMeta = function() {
+var errorMessageFromjqXHR = function(jqXHR_, textStatus_, errorThrown_) {
+    return "HTTP error " + jqXHR_.status + ". " + jqXHR_.statusText + ": " + jqXHR_.responseText;
+}
+
+
+var createAjaxRequestPromise = function(httpMethod_, relativeUrl_, dataObject_) {
     return new Promise( function(resolve_, reject_) {
-        var req = new XMLHttpRequest();
-        req.open('GET', './meta');
-        req.onload = function() {
-            if (req.status == 200) {
-                resolve_(JSON.parse(req.response));
-            } else {
-                reject_(Error(req.statusText));
+        $.ajax({
+            type: httpMethod_,
+            url: relativeUrl_,
+            cache: false,
+            data: dataObject_,
+            dataType: "json", // This is the expected return type
+            success: function(data_) {
+                resolve_(data_);
+            },
+            error: function(jqXHR_, textStatus_, errorThrown_) {
+                reject_(new Error(errorMessageFromjqXHR(jqXHR_, textStatus_, errorThrown_)));
             }
-        };
-        req.onerror = function() {
-            reject_(Error("Network Error!"));
-        };
-        req.send();
+        });
     });
 }
+
+// GET /meta
+var getMeta = function() { return createAjaxRequestPromise("GET", "./meta"); }
 
 // GET /models
-var getModels = function() {
-    return new Promise( function(resolve_, reject_) {
-        var req = new XMLHttpRequest();
-        req.open('GET', './models');
-        req.onload = function() {
-            if (req.status == 200) {
-                resolve_(JSON.parse(req.response));
-            } else {
-                reject_(Error(req.statusText));
-            }
-        };
-        req.onerror = function() {
-            reject_(Error("Network Error!"));
-        };
-        req.send();
-    });
-}
+var getModels = function() { return createAjaxRequestPromise("GET", "./models"); }
 
 // GET /stores
-var getStores = function() {
-    return new Promise( function(resolve_, reject_) {
-        var req = new XMLHttpRequest();
-        req.open('GET', './stores');
-        req.onload = function() {
-            if (req.status == 200) {
-                resolve_(JSON.parse(req.response));
-            } else {
-                reject_(Error(req.statusText));
-            }
-        };
-        req.onerror = function() {
-            reject_(Error("Network Error!"));
-        };
-        req.send();
-    });
-}
+var getStores = function() { return createAjaxRequestPromise("GET", "./stores"); }
 
 // GET /addresses/:store?/:address?
 var getAddresses = function(storeUuid_, addressHash_) {
-    return new Promise( function(resolve_, reject_) {
-        var req = new XMLHttpRequest();
-        req.open('GET', './addresses');
-        req.onload = function() {
-            if (req.status == 200) {
-                resolve_(JSON.parse(req.response));
-            } else {
-                reject_(Error(req.statusText));
-            }
-        };
-        req.onerror = function() {
-            reject_(Error("Network Error!"));
-        };
-        var params = {
-            store: storeUuid_,
-            address: addressHash_
-        };
-        req.send(params);
-    });
+    return createAjaxRequestPromise("GET", "./addresses", { store: storeUuid_, address: addressHash_ });
 }
 
 // GET /data/:store?/:address?
 var getData = function(storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("GET", "./data", { store: storeUuid_, address: addressHash_});
 }
 
-// POST /create/store/:model?
+// POST /create/store
 var createStore = function(modelName_) {
+    return createAjaxRequestPromise("POST", "./create/store", { model: modelName_ });
 }
 
-// POST /create/component/:store?/:address?
+// POST /create/component
 var createComponent = function(storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("POST", "./create/component", { store: storeUuid_, address: addressHash_ });
 }
 
-// POST /update/component/:store?/:address?/:data?
+// POST /update/component
 var updateComponent = function(storeUuid_, addressHash_, componentData_) {
+    return createAjaxRequestPromise("POST", "./update/component", { store: storeUuid_, address: addressHash_, data: componentData_ });
 }
 
 // DELETE /remove/stores
 var removeStores = function() {
+    return createAjaxRequestPromise("DELETE", "./remove/stores");
 }
 
-// DELETE /remove/store/:store?
+// DELETE /remove/store
 var removeStore = function(storeUuid_) {
+    return createAjaxRequestPromise("DELETE", "./remove/store", { store: storeUuid_ });
 }
 
-// DELETE /remove/component/:store?/:address?
+// DELETE /remove/component
 var removeComponent = function(storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("DELETE", "./remove/component", { store: storeUuid_, address: addressHash_ });
 }
 
 
@@ -126,12 +90,28 @@ $(function() {
     var store = new onm.Store(model);
     console.log("Client-side HTML 5 application initialized.");
 
+    createStore("scdl").then(
+        function (response_) {
+            console.log(response_);
+            removeStore(response_.storeKey).then(
+                function (response_) {
+                    console.log(response_);
+                },
+                function (error_) {
+                    console.error(error_.message);
+                });
+        },
+        function (error_) {
+            console.error(error_.message)
+        });
+
+
     getMeta().then(
         function (response_) {
             console.log(response_);
         },
         function (error_) {
-            console.error(error_);
+            console.error(error_.message);
 
         });
 
@@ -140,7 +120,7 @@ $(function() {
             console.log(response_);
         },
         function (error_) {
-            console.error(error_);
+            console.error(error_.message);
         });
 
     getStores().then(
@@ -148,16 +128,16 @@ $(function() {
             console.log(response_);
         },
         function (error_) {
-            console.error(error_);
+            console.error(error_.message);
         });
 
 
     getAddresses("storeID", "scdl").then(
-        function (response_) {
+        function (data_) {
             console.log(response_);
         },
         function (error_) {
-            console.error(error_);
+            console.error(error_.message);
         });
 
 });

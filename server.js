@@ -26,6 +26,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', routes.index);
 
 // API for experimenting with shared onm data store instances in node.js.
+"use strict";
+
 //
 // 
 // GET, and DELETE methods are idempotent.
@@ -36,12 +38,12 @@ app.get('/models', onmApi.getModels);                                           
 app.get('/stores', onmApi.getStores);                                             // GET a JSON array containing this node's memory-resident onm data stores.
 app.get('/addresses/:store?/:address?', onmApi.getStoreAddresses);                // GET a JSON array containing all the addresses in the specified store starting at the given address.
 app.get('/data/:store?/:address?', onmApi.getStoreData);                          // GET a JSON object containing the serialized contents of the specified store namespace.
-app.post('/create/store/:model?', onmApi.postCreateStore);                        // POST to create a new onm data store using the specified onm data model.
-app.post('/create/component/:store?/:address?', onmApi.postCreateComponent);      // POST to create a store store component at the specified unresolved address.
-app.post('/update/component/:store?/:address?/:data?', onmApi.postNamespaceData); // POST to overwrite the store component data at the specified address.
-app.delete('/remove/stores', onmApi.deleteStores);                                // DELETE all in-memory stores.
-app.delete('/remove/store/:store?' , onmApi.deleteStore);                         // DELETE the specified in-memory store.
-app.delete('/remove/component/:store?/:address?', onmApi.deleteStore);            // DELETE the specified data component in the indicated in-memory store.
+app.post('/create/store', onmApi.postCreateStore);                                // POST to create a new onm data store. Request body must include 'model' property.
+app.post('/create/component', onmApi.postCreateComponent);                        // POST to create a data component within a store. Request body must include 'store', and 'address' properties.
+app.post('/update/component', onmApi.postUpdateNamespaceData);                    // POST to overwrite the store component data at the specified address. Request body must include 'store', 'address', and 'data' properties.
+app.del('/remove/stores', onmApi.deleteStores);                                   // DELETE all in-memory stores.
+app.del('/remove/store' , onmApi.deleteStoreOrComponent);                 // DELETE the specified in-memory store.
+app.del('/remove/component', onmApi.deleteStoreOrComponent);    // DELETE the specified data component in the indicated in-memory store.
 
 // [1] there are some special cases where updating a component's
 // data via POST is idempotent. Specifically, if onm namespace

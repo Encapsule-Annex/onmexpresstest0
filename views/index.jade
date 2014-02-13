@@ -11,6 +11,12 @@ block content
   p This HTML page is only for documentation purposes. Access to the applciation is via the following
     | web API's:
 
+  form(action="./create/store", method="POST")
+    | model:
+    input(type="text" name="model")
+    input(type="submit" value="POST")
+
+
   h2 API
 
   h3 GET host:1031/meta
