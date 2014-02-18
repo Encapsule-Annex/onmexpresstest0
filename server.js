@@ -2,13 +2,23 @@
  * Module dependencies.
  */
 
+"use strict";
+
+var onm = require('onm');
 var express = require('express');
 var routes = require('./routes');
-var onmApi = require('./routes/onm-api');
 var http = require('http');
 var path = require('path');
 
 var app = express();
+
+var onmModelDictionary = {};
+var onmStoreDictionary = {};
+
+onmModelDictionary['scdl'] = {
+    model: new onm.Model(require('onmd-scdl').DataModel),
+    package: require('onmd-scdl/package.json')
+};
 
 // all environments
 app.set('port', process.env.OPENSHIFT_NODEJS_PORT || 1031);
@@ -25,37 +35,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', routes.index);
 
-// API for experimenting with shared onm data store instances in node.js.
-"use strict";
+var onmRoutes = require('onm-server-rest-routes')(app, null, onmModelDictionary, onmStoreDictionary);
+onmRoutes.registerRoute_GetAppMeta();
+onmRoutes.registerRoute_GetModels();
+onmRoutes.registerRoute_GetStores();
+onmRoutes.registerRoute_GetStoreAddresses();
+onmRoutes.registerRoute_GetStoreData();
+onmRoutes.registerRoute_PostCreateStore();
+onmRoutes.registerRoute_PostCreateComponent();
+onmRoutes.registerRoute_PostUpdateComponent();
+onmRoutes.registerRoute_DeleteRemoveStores();
+onmRoutes.registerRoute_DeleteRemoveStore();
+onmRoutes.registerRoute_DeleteRemoveComponent();
 
-//
-// 
-// GET, and DELETE methods are idempotent.
-// POST methods are not idempotent [1]
-
-app.get('/meta', onmApi.getAppMeta);                                              // GET a JSON container of information about this app.
-app.get('/models', onmApi.getModels);                                             // GET a JSON array containing this node's supported onm data models.
-app.get('/stores', onmApi.getStores);                                             // GET a JSON array containing this node's memory-resident onm data stores.
-app.get('/addresses/:store?/:address?', onmApi.getStoreAddresses);                // GET a JSON array containing all the addresses in the specified store starting at the given address.
-app.get('/data/:store?/:address?', onmApi.getStoreData);                          // GET a JSON object containing the serialized contents of the specified store namespace.
-app.post('/create/store', onmApi.postCreateStore);                                // POST to create a new onm data store. Request body must include 'model' property.
-app.post('/create/component', onmApi.postCreateComponent);                        // POST to create a data component within a store. Request body must include 'store', and 'address' properties.
-app.post('/update/component', onmApi.postUpdateNamespaceData);                    // POST to overwrite the store component data at the specified address. Request body must include 'store', 'address', and 'data' properties.
-app.del('/remove/stores', onmApi.deleteStores);                                   // DELETE all in-memory stores.
-app.del('/remove/store' , onmApi.deleteStoreOrComponent);                 // DELETE the specified in-memory store.
-app.del('/remove/component', onmApi.deleteStoreOrComponent);    // DELETE the specified data component in the indicated in-memory store.
-
-// [1] there are some special cases where updating a component's
-// data via POST is idempotent. Specifically, if onm namespace
-// versioning is disabled, and there are no routines observing
-// the target onm.Store, then the operation is idempotent.
-// You're unlikely to encounter these outside of a test program.
-// So just assume all POST methods are not idempotent.
-
-// development only
-//if ('development' == app.get('env')) {
 app.use(express.errorHandler());
-//}
 
 http.createServer(app).listen(app.get('port'), app.get('ip'), function(){
   console.log('Express server listening on port ' + app.get('port'));

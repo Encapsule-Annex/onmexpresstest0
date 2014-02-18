@@ -11,52 +11,72 @@ block content
   p This HTML page is only for documentation purposes. Access to the applciation is via the following
     | web API's:
 
-  form(action="./create/store", method="POST")
-    | model:
-    input(type="text" name="model")
-    input(type="submit" value="POST")
-
-
   h2 API
 
   h3 GET host:1031/meta
   p Obtain information about this node server process.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/meta'
 
   h3 GET host:1031/models
   p Enmerate the onm data model(s) supported by this node server process.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/models'
 
   h3 GET host:1031/stores
   p Enumerate the onm data store(s) currently hosted by this node server process.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/stores'
 
   h3 GET host:1031/addresses/:store?
   p Enumerate the data namespace addresses in the specified onm data store.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/addresses?store=8c170127-774d-40bf-9e5b-da8c2da80f6c'
 
   h3 GET host:1013/addresses/:store?/:address?
   p Enumerate the data namespace addresses in the specified onm data store starting at the indicated address.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/addresses?store=8c170127-774d-40bf-9e5b-da8c2da80f6c&address=scdl.1'
 
-  h3 GET host:1031/data/data/:store?
+  h3 GET host:1031/data/:store?
   p Retrieve the serialized contents of the specified onm data store.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/data?store=8c170127-774d-40bf-9e5b-da8c2da80f6c`
 
   h3 GET host:1031/data/:store?/:address?
   p Retrieve the serialized contents of a specific data namespace in the indicated data store.
+  p
+    i e.g. curl -i -X GET 'localhost:1031/data?store=8c170127-774d-40bf-9e5b-da8c2da80f6c&address=scdl.1'
 
-  h3 POST host:1031:/create/store/:model?
+  h3 POST host:1031:/create/store/
   p Create a new memory-resident onm data store bound to the specified onm data model.
+  p
+    i e.g. curl -i -X POST 'localhost:1031/create/store' -d "model=scdl"
 
-  h3 POST host:1031/create/component/:store?/:address?
+  h3 POST host:1031/create/component/
   p Create the data component specified by address in the store indicated by the store parameter.
+  p
+    i e.g. curl -i -X POST 'localhost:1031/create/component' -d "store=8c170127-774d-40bf-9e5b-da8c2da80f6c" -d "address=scdl.1.-.2"
 
   h3 POST host:1031/update/component/:store?/:address?/:data?
   p Update the specified component's data.
+  p
+    i e.g. curl -i -X POST 'localhost:1031/update/component' -d "store=8c170127-774d-40bf-9e5b-da8c2da80f6c" -d "address=scdl.1.2d3c07f8-39ef-41e3-8e73-5411093c9ac5.2" -d "data=..."
 
   h3 DELETE host:1031/remove/stores
   p Delete all onm data store instances currently hosted by this node server process.
+  p
+    i e.g. curl -i -X DELETE 'localhost:1031/remove/stores'
 
   h3 DELETE host:1031/remove/:store?
   p Delete a specific onm data store instance.
+  p
+    i e.g. curl -i -X DELETE 'localhost:1031/remove/store' -d "store=8c170127-774d-40bf-9e5b-da8c2da80f6c"
 
   h3 DELETE host:1031/remove/component/:store?/:address?
   p Delete a specific onm data component instance from an onm data store.
+  p
+    i e.g. curl -i -X DELETE 'localhost:1031/remove/component' -d "store=8c170127-774d-40bf-9e5b-da8c2da80f6c" -d "address=scdl.1.2d3c07f8-39ef-41e3-8e73-5411093c9ac5.2"
 
 
   

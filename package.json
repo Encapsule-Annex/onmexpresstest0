@@ -1,6 +1,6 @@
 {
   "name": "onmexpresstest0",
-  "version": "0.0.9",
+  "version": "0.0.11",
   "description": "Generic data test server based on express and onm node.js packages.",
   "private": true,
   "main": "server.js",
@@ -22,6 +22,8 @@
     "express": "3.4.8",
     "jade": "*",
     "onm": "Encapsule/onm",
+    "onm-server-rest-routes": "0.0.1",
+    "onm-client-rest-api": "0.0.2",
     "onmd-scdl": "Encapsule/onmd-scdl",
     "node-uuid": "~1.4.1",
     "jquery": "~2.1.0",

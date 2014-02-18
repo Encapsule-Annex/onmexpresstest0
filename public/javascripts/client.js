@@ -7,91 +7,22 @@
 
 var $ = require('jquery') // (window); <--- surprised this appears to be unnecessary based on StackOverflow articles.
 var Promise = require('es6-promise').Promise;
+
+var onmClient = require('onm-client-rest-api');
+
 var onm = require('onm');
 var scdl = require('onmd-scdl');
-
-
-var errorMessageFromjqXHR = function(jqXHR_, textStatus_, errorThrown_) {
-    return "HTTP error " + jqXHR_.status + ". " + jqXHR_.statusText + ": " + jqXHR_.responseText;
-}
-
-
-var createAjaxRequestPromise = function(httpMethod_, relativeUrl_, dataObject_) {
-    return new Promise( function(resolve_, reject_) {
-        $.ajax({
-            type: httpMethod_,
-            url: relativeUrl_,
-            cache: false,
-            data: dataObject_,
-            dataType: "json", // This is the expected return type
-            success: function(data_) {
-                resolve_(data_);
-            },
-            error: function(jqXHR_, textStatus_, errorThrown_) {
-                reject_(new Error(errorMessageFromjqXHR(jqXHR_, textStatus_, errorThrown_)));
-            }
-        });
-    });
-}
-
-// GET /meta
-var getMeta = function() { return createAjaxRequestPromise("GET", "./meta"); }
-
-// GET /models
-var getModels = function() { return createAjaxRequestPromise("GET", "./models"); }
-
-// GET /stores
-var getStores = function() { return createAjaxRequestPromise("GET", "./stores"); }
-
-// GET /addresses/:store?/:address?
-var getAddresses = function(storeUuid_, addressHash_) {
-    return createAjaxRequestPromise("GET", "./addresses", { store: storeUuid_, address: addressHash_ });
-}
-
-// GET /data/:store?/:address?
-var getData = function(storeUuid_, addressHash_) {
-    return createAjaxRequestPromise("GET", "./data", { store: storeUuid_, address: addressHash_});
-}
-
-// POST /create/store
-var createStore = function(modelName_) {
-    return createAjaxRequestPromise("POST", "./create/store", { model: modelName_ });
-}
-
-// POST /create/component
-var createComponent = function(storeUuid_, addressHash_) {
-    return createAjaxRequestPromise("POST", "./create/component", { store: storeUuid_, address: addressHash_ });
-}
-
-// POST /update/component
-var updateComponent = function(storeUuid_, addressHash_, componentData_) {
-    return createAjaxRequestPromise("POST", "./update/component", { store: storeUuid_, address: addressHash_, data: componentData_ });
-}
-
-// DELETE /remove/stores
-var removeStores = function() {
-    return createAjaxRequestPromise("DELETE", "./remove/stores");
-}
-
-// DELETE /remove/store
-var removeStore = function(storeUuid_) {
-    return createAjaxRequestPromise("DELETE", "./remove/store", { store: storeUuid_ });
-}
-
-// DELETE /remove/component
-var removeComponent = function(storeUuid_, addressHash_) {
-    return createAjaxRequestPromise("DELETE", "./remove/component", { store: storeUuid_, address: addressHash_ });
-}
-
 
 
 $(function() {
 
     var model = new onm.Model(scdl.DataModel);
     var store = new onm.Store(model);
+    var baseURI = this.baseURI;
     console.log("Client-side HTML 5 application initialized.");
 
-    createStore("scdl").then(
+
+    onmClient.createStore(baseURI, "scdl").then(
         function (response_) {
             console.log(response_);
             removeStore(response_.storeKey).then(
@@ -107,7 +38,7 @@ $(function() {
         });
 
 
-    getMeta().then(
+    onmClient.getMeta(baseURI).then(
         function (response_) {
             console.log(response_);
         },
@@ -116,7 +47,7 @@ $(function() {
 
         });
 
-    getModels().then(
+    onmClient.getModels(baseURI).then(
         function (response_) {
             console.log(response_);
         },
@@ -124,7 +55,7 @@ $(function() {
             console.error(error_.message);
         });
 
-    getStores().then(
+    onmClient.getStores(baseURI).then(
         function (response_) {
             console.log(response_);
         },
@@ -133,7 +64,7 @@ $(function() {
         });
 
 
-    getAddresses("storeID", "scdl").then(
+    onmClient.getAddresses(baseURI, "storeID", "scdl").then(
         function (data_) {
             console.log(response_);
         },
@@ -144,702 +75,7 @@ $(function() {
 });
 
 
-},{"es6-promise":2,"jquery":23,"onm":35,"onmd-scdl":52}],2:[function(require,module,exports){
-"use strict";
-var Promise = require("./promise/promise").Promise;
-var polyfill = require("./promise/polyfill").polyfill;
-exports.Promise = Promise;
-exports.polyfill = polyfill;
-},{"./promise/polyfill":7,"./promise/promise":8}],3:[function(require,module,exports){
-"use strict";
-/* global toString */
-
-var isArray = require("./utils").isArray;
-var isFunction = require("./utils").isFunction;
-
-/**
-  Returns a promise that is fulfilled when all the given promises have been
-  fulfilled, or rejected if any of them become rejected. The return promise
-  is fulfilled with an array that gives all the values in the order they were
-  passed in the `promises` array argument.
-
-  Example:
-
-  ```javascript
-  var promise1 = RSVP.resolve(1);
-  var promise2 = RSVP.resolve(2);
-  var promise3 = RSVP.resolve(3);
-  var promises = [ promise1, promise2, promise3 ];
-
-  RSVP.all(promises).then(function(array){
-    // The array here would be [ 1, 2, 3 ];
-  });
-  ```
-
-  If any of the `promises` given to `RSVP.all` are rejected, the first promise
-  that is rejected will be given as an argument to the returned promises's
-  rejection handler. For example:
-
-  Example:
-
-  ```javascript
-  var promise1 = RSVP.resolve(1);
-  var promise2 = RSVP.reject(new Error("2"));
-  var promise3 = RSVP.reject(new Error("3"));
-  var promises = [ promise1, promise2, promise3 ];
-
-  RSVP.all(promises).then(function(array){
-    // Code here never runs because there are rejected promises!
-  }, function(error) {
-    // error.message === "2"
-  });
-  ```
-
-  @method all
-  @for RSVP
-  @param {Array} promises
-  @param {String} label
-  @return {Promise} promise that is fulfilled when all `promises` have been
-  fulfilled, or rejected if any of them become rejected.
-*/
-function all(promises) {
-  /*jshint validthis:true */
-  var Promise = this;
-
-  if (!isArray(promises)) {
-    throw new TypeError('You must pass an array to all.');
-  }
-
-  return new Promise(function(resolve, reject) {
-    var results = [], remaining = promises.length,
-    promise;
-
-    if (remaining === 0) {
-      resolve([]);
-    }
-
-    function resolver(index) {
-      return function(value) {
-        resolveAll(index, value);
-      };
-    }
-
-    function resolveAll(index, value) {
-      results[index] = value;
-      if (--remaining === 0) {
-        resolve(results);
-      }
-    }
-
-    for (var i = 0; i < promises.length; i++) {
-      promise = promises[i];
-
-      if (promise && isFunction(promise.then)) {
-        promise.then(resolver(i), reject);
-      } else {
-        resolveAll(i, promise);
-      }
-    }
-  });
-}
-
-exports.all = all;
-},{"./utils":12}],4:[function(require,module,exports){
-(function (process,global){
-"use strict";
-var browserGlobal = (typeof window !== 'undefined') ? window : {};
-var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-var local = (typeof global !== 'undefined') ? global : this;
-
-// node
-function useNextTick() {
-  return function() {
-    process.nextTick(flush);
-  };
-}
-
-function useMutationObserver() {
-  var iterations = 0;
-  var observer = new BrowserMutationObserver(flush);
-  var node = document.createTextNode('');
-  observer.observe(node, { characterData: true });
-
-  return function() {
-    node.data = (iterations = ++iterations % 2);
-  };
-}
-
-function useSetTimeout() {
-  return function() {
-    local.setTimeout(flush, 1);
-  };
-}
-
-var queue = [];
-function flush() {
-  for (var i = 0; i < queue.length; i++) {
-    var tuple = queue[i];
-    var callback = tuple[0], arg = tuple[1];
-    callback(arg);
-  }
-  queue = [];
-}
-
-var scheduleFlush;
-
-// Decide what async method to use to triggering processing of queued callbacks:
-if (typeof process !== 'undefined' && {}.toString.call(process) === '[object process]') {
-  scheduleFlush = useNextTick();
-} else if (BrowserMutationObserver) {
-  scheduleFlush = useMutationObserver();
-} else {
-  scheduleFlush = useSetTimeout();
-}
-
-function asap(callback, arg) {
-  var length = queue.push([callback, arg]);
-  if (length === 1) {
-    // If length is 1, that means that we need to schedule an async flush.
-    // If additional callbacks are queued before the queue is flushed, they
-    // will be processed by this flush that we are scheduling.
-    scheduleFlush();
-  }
-}
-
-exports.asap = asap;
-}).call(this,require("/home/cdr/encapsule/onmexpresstest0/node_modules/grunt-browserify/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"/home/cdr/encapsule/onmexpresstest0/node_modules/grunt-browserify/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":19}],5:[function(require,module,exports){
-"use strict";
-/**
-  `RSVP.Promise.cast` returns the same promise if that promise shares a constructor
-  with the promise being casted.
-
-  Example:
-
-  ```javascript
-  var promise = RSVP.resolve(1);
-  var casted = RSVP.Promise.cast(promise);
-
-  console.log(promise === casted); // true
-  ```
-
-  In the case of a promise whose constructor does not match, it is assimilated.
-  The resulting promise will fulfill or reject based on the outcome of the
-  promise being casted.
-
-  In the case of a non-promise, a promise which will fulfill with that value is
-  returned.
-
-  Example:
-
-  ```javascript
-  var value = 1; // could be a number, boolean, string, undefined...
-  var casted = RSVP.Promise.cast(value);
-
-  console.log(value === casted); // false
-  console.log(casted instanceof RSVP.Promise) // true
-
-  casted.then(function(val) {
-    val === value // => true
-  });
-  ```
-
-  `RSVP.Promise.cast` is similar to `RSVP.resolve`, but `RSVP.Promise.cast` differs in the
-  following ways:
-  * `RSVP.Promise.cast` serves as a memory-efficient way of getting a promise, when you
-  have something that could either be a promise or a value. RSVP.resolve
-  will have the same effect but will create a new promise wrapper if the
-  argument is a promise.
-  * `RSVP.Promise.cast` is a way of casting incoming thenables or promise subclasses to
-  promises of the exact class specified, so that the resulting object's `then` is
-  ensured to have the behavior of the constructor you are calling cast on (i.e., RSVP.Promise).
-
-  @method cast
-  @for RSVP
-  @param {Object} object to be casted
-  @return {Promise} promise that is fulfilled when all properties of `promises`
-  have been fulfilled, or rejected if any of them become rejected.
-*/
-
-
-function cast(object) {
-  /*jshint validthis:true */
-  if (object && typeof object === 'object' && object.constructor === this) {
-    return object;
-  }
-
-  var Promise = this;
-
-  return new Promise(function(resolve) {
-    resolve(object);
-  });
-}
-
-exports.cast = cast;
-},{}],6:[function(require,module,exports){
-"use strict";
-var config = {
-  instrument: false
-};
-
-function configure(name, value) {
-  if (arguments.length === 2) {
-    config[name] = value;
-  } else {
-    return config[name];
-  }
-}
-
-exports.config = config;
-exports.configure = configure;
-},{}],7:[function(require,module,exports){
-"use strict";
-var RSVPPromise = require("./promise").Promise;
-var isFunction = require("./utils").isFunction;
-
-function polyfill() {
-  var es6PromiseSupport = 
-    "Promise" in window &&
-    // Some of these methods are missing from
-    // Firefox/Chrome experimental implementations
-    "cast" in window.Promise &&
-    "resolve" in window.Promise &&
-    "reject" in window.Promise &&
-    "all" in window.Promise &&
-    "race" in window.Promise &&
-    // Older version of the spec had a resolver object
-    // as the arg rather than a function
-    (function() {
-      var resolve;
-      new window.Promise(function(r) { resolve = r; });
-      return isFunction(resolve);
-    }());
-
-  if (!es6PromiseSupport) {
-    window.Promise = RSVPPromise;
-  }
-}
-
-exports.polyfill = polyfill;
-},{"./promise":8,"./utils":12}],8:[function(require,module,exports){
-"use strict";
-var config = require("./config").config;
-var configure = require("./config").configure;
-var objectOrFunction = require("./utils").objectOrFunction;
-var isFunction = require("./utils").isFunction;
-var now = require("./utils").now;
-var cast = require("./cast").cast;
-var all = require("./all").all;
-var race = require("./race").race;
-var staticResolve = require("./resolve").resolve;
-var staticReject = require("./reject").reject;
-var asap = require("./asap").asap;
-
-var counter = 0;
-
-config.async = asap; // default async is asap;
-
-function Promise(resolver) {
-  if (!isFunction(resolver)) {
-    throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
-  }
-
-  if (!(this instanceof Promise)) {
-    throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
-  }
-
-  this._subscribers = [];
-
-  invokeResolver(resolver, this);
-}
-
-function invokeResolver(resolver, promise) {
-  function resolvePromise(value) {
-    resolve(promise, value);
-  }
-
-  function rejectPromise(reason) {
-    reject(promise, reason);
-  }
-
-  try {
-    resolver(resolvePromise, rejectPromise);
-  } catch(e) {
-    rejectPromise(e);
-  }
-}
-
-function invokeCallback(settled, promise, callback, detail) {
-  var hasCallback = isFunction(callback),
-      value, error, succeeded, failed;
-
-  if (hasCallback) {
-    try {
-      value = callback(detail);
-      succeeded = true;
-    } catch(e) {
-      failed = true;
-      error = e;
-    }
-  } else {
-    value = detail;
-    succeeded = true;
-  }
-
-  if (handleThenable(promise, value)) {
-    return;
-  } else if (hasCallback && succeeded) {
-    resolve(promise, value);
-  } else if (failed) {
-    reject(promise, error);
-  } else if (settled === FULFILLED) {
-    resolve(promise, value);
-  } else if (settled === REJECTED) {
-    reject(promise, value);
-  }
-}
-
-var PENDING   = void 0;
-var SEALED    = 0;
-var FULFILLED = 1;
-var REJECTED  = 2;
-
-function subscribe(parent, child, onFulfillment, onRejection) {
-  var subscribers = parent._subscribers;
-  var length = subscribers.length;
-
-  subscribers[length] = child;
-  subscribers[length + FULFILLED] = onFulfillment;
-  subscribers[length + REJECTED]  = onRejection;
-}
-
-function publish(promise, settled) {
-  var child, callback, subscribers = promise._subscribers, detail = promise._detail;
-
-  for (var i = 0; i < subscribers.length; i += 3) {
-    child = subscribers[i];
-    callback = subscribers[i + settled];
-
-    invokeCallback(settled, child, callback, detail);
-  }
-
-  promise._subscribers = null;
-}
-
-Promise.prototype = {
-  constructor: Promise,
-
-  _state: undefined,
-  _detail: undefined,
-  _subscribers: undefined,
-
-  then: function(onFulfillment, onRejection) {
-    var promise = this;
-
-    var thenPromise = new this.constructor(function() {});
-
-    if (this._state) {
-      var callbacks = arguments;
-      config.async(function invokePromiseCallback() {
-        invokeCallback(promise._state, thenPromise, callbacks[promise._state - 1], promise._detail);
-      });
-    } else {
-      subscribe(this, thenPromise, onFulfillment, onRejection);
-    }
-
-    return thenPromise;
-  },
-
-  'catch': function(onRejection) {
-    return this.then(null, onRejection);
-  }
-};
-
-Promise.all = all;
-Promise.cast = cast;
-Promise.race = race;
-Promise.resolve = staticResolve;
-Promise.reject = staticReject;
-
-function handleThenable(promise, value) {
-  var then = null,
-  resolved;
-
-  try {
-    if (promise === value) {
-      throw new TypeError("A promises callback cannot return that same promise.");
-    }
-
-    if (objectOrFunction(value)) {
-      then = value.then;
-
-      if (isFunction(then)) {
-        then.call(value, function(val) {
-          if (resolved) { return true; }
-          resolved = true;
-
-          if (value !== val) {
-            resolve(promise, val);
-          } else {
-            fulfill(promise, val);
-          }
-        }, function(val) {
-          if (resolved) { return true; }
-          resolved = true;
-
-          reject(promise, val);
-        });
-
-        return true;
-      }
-    }
-  } catch (error) {
-    if (resolved) { return true; }
-    reject(promise, error);
-    return true;
-  }
-
-  return false;
-}
-
-function resolve(promise, value) {
-  if (promise === value) {
-    fulfill(promise, value);
-  } else if (!handleThenable(promise, value)) {
-    fulfill(promise, value);
-  }
-}
-
-function fulfill(promise, value) {
-  if (promise._state !== PENDING) { return; }
-  promise._state = SEALED;
-  promise._detail = value;
-
-  config.async(publishFulfillment, promise);
-}
-
-function reject(promise, reason) {
-  if (promise._state !== PENDING) { return; }
-  promise._state = SEALED;
-  promise._detail = reason;
-
-  config.async(publishRejection, promise);
-}
-
-function publishFulfillment(promise) {
-  publish(promise, promise._state = FULFILLED);
-}
-
-function publishRejection(promise) {
-  publish(promise, promise._state = REJECTED);
-}
-
-exports.Promise = Promise;
-},{"./all":3,"./asap":4,"./cast":5,"./config":6,"./race":9,"./reject":10,"./resolve":11,"./utils":12}],9:[function(require,module,exports){
-"use strict";
-/* global toString */
-var isArray = require("./utils").isArray;
-
-/**
-  `RSVP.race` allows you to watch a series of promises and act as soon as the
-  first promise given to the `promises` argument fulfills or rejects.
-
-  Example:
-
-  ```javascript
-  var promise1 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve("promise 1");
-    }, 200);
-  });
-
-  var promise2 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve("promise 2");
-    }, 100);
-  });
-
-  RSVP.race([promise1, promise2]).then(function(result){
-    // result === "promise 2" because it was resolved before promise1
-    // was resolved.
-  });
-  ```
-
-  `RSVP.race` is deterministic in that only the state of the first completed
-  promise matters. For example, even if other promises given to the `promises`
-  array argument are resolved, but the first completed promise has become
-  rejected before the other promises became fulfilled, the returned promise
-  will become rejected:
-
-  ```javascript
-  var promise1 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      resolve("promise 1");
-    }, 200);
-  });
-
-  var promise2 = new RSVP.Promise(function(resolve, reject){
-    setTimeout(function(){
-      reject(new Error("promise 2"));
-    }, 100);
-  });
-
-  RSVP.race([promise1, promise2]).then(function(result){
-    // Code here never runs because there are rejected promises!
-  }, function(reason){
-    // reason.message === "promise2" because promise 2 became rejected before
-    // promise 1 became fulfilled
-  });
-  ```
-
-  @method race
-  @for RSVP
-  @param {Array} promises array of promises to observe
-  @param {String} label optional string for describing the promise returned.
-  Useful for tooling.
-  @return {Promise} a promise that becomes fulfilled with the value the first
-  completed promises is resolved with if the first completed promise was
-  fulfilled, or rejected with the reason that the first completed promise
-  was rejected with.
-*/
-function race(promises) {
-  /*jshint validthis:true */
-  var Promise = this;
-
-  if (!isArray(promises)) {
-    throw new TypeError('You must pass an array to race.');
-  }
-  return new Promise(function(resolve, reject) {
-    var results = [], promise;
-
-    for (var i = 0; i < promises.length; i++) {
-      promise = promises[i];
-
-      if (promise && typeof promise.then === 'function') {
-        promise.then(resolve, reject);
-      } else {
-        resolve(promise);
-      }
-    }
-  });
-}
-
-exports.race = race;
-},{"./utils":12}],10:[function(require,module,exports){
-"use strict";
-/**
-  `RSVP.reject` returns a promise that will become rejected with the passed
-  `reason`. `RSVP.reject` is essentially shorthand for the following:
-
-  ```javascript
-  var promise = new RSVP.Promise(function(resolve, reject){
-    reject(new Error('WHOOPS'));
-  });
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  var promise = RSVP.reject(new Error('WHOOPS'));
-
-  promise.then(function(value){
-    // Code here doesn't run because the promise is rejected!
-  }, function(reason){
-    // reason.message === 'WHOOPS'
-  });
-  ```
-
-  @method reject
-  @for RSVP
-  @param {Any} reason value that the returned promise will be rejected with.
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise that will become rejected with the given
-  `reason`.
-*/
-function reject(reason) {
-  /*jshint validthis:true */
-  var Promise = this;
-
-  return new Promise(function (resolve, reject) {
-    reject(reason);
-  });
-}
-
-exports.reject = reject;
-},{}],11:[function(require,module,exports){
-"use strict";
-/**
-  `RSVP.resolve` returns a promise that will become fulfilled with the passed
-  `value`. `RSVP.resolve` is essentially shorthand for the following:
-
-  ```javascript
-  var promise = new RSVP.Promise(function(resolve, reject){
-    resolve(1);
-  });
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  Instead of writing the above, your code now simply becomes the following:
-
-  ```javascript
-  var promise = RSVP.resolve(1);
-
-  promise.then(function(value){
-    // value === 1
-  });
-  ```
-
-  @method resolve
-  @for RSVP
-  @param {Any} value value that the returned promise will be resolved with
-  @param {String} label optional string for identifying the returned promise.
-  Useful for tooling.
-  @return {Promise} a promise that will become fulfilled with the given
-  `value`
-*/
-function resolve(value) {
-  /*jshint validthis:true */
-  var Promise = this;
-  return new Promise(function(resolve, reject) {
-    resolve(value);
-  });
-}
-
-exports.resolve = resolve;
-},{}],12:[function(require,module,exports){
-"use strict";
-function objectOrFunction(x) {
-  return isFunction(x) || (typeof x === "object" && x !== null);
-}
-
-function isFunction(x) {
-  return typeof x === "function";
-}
-
-function isArray(x) {
-  return Object.prototype.toString.call(x) === "[object Array]";
-}
-
-// Date.now is not available in browsers < IE9
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#Compatibility
-var now = Date.now || function() { return new Date().getTime(); };
-
-
-exports.objectOrFunction = objectOrFunction;
-exports.isFunction = isFunction;
-exports.isArray = isArray;
-exports.now = now;
-},{}],13:[function(require,module,exports){
+},{"es6-promise":12,"jquery":23,"onm":36,"onm-client-rest-api":25,"onmd-scdl":53}],2:[function(require,module,exports){
 var Buffer = require('buffer').Buffer;
 var intSize = 4;
 var zeroBuffer = new Buffer(intSize); zeroBuffer.fill(0);
@@ -876,7 +112,7 @@ function hash(buf, fn, hashSize, bigEndian) {
 
 module.exports = { hash: hash };
 
-},{"buffer":20}],14:[function(require,module,exports){
+},{"buffer":9}],3:[function(require,module,exports){
 var Buffer = require('buffer').Buffer
 var sha = require('./sha')
 var sha256 = require('./sha256')
@@ -975,7 +211,7 @@ each(['createCredentials'
   }
 })
 
-},{"./md5":15,"./rng":16,"./sha":17,"./sha256":18,"buffer":20}],15:[function(require,module,exports){
+},{"./md5":4,"./rng":5,"./sha":6,"./sha256":7,"buffer":9}],4:[function(require,module,exports){
 /*
  * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
  * Digest Algorithm, as defined in RFC 1321.
@@ -1140,7 +376,7 @@ module.exports = function md5(buf) {
   return helpers.hash(buf, core_md5, 16);
 };
 
-},{"./helpers":13}],16:[function(require,module,exports){
+},{"./helpers":2}],5:[function(require,module,exports){
 // Original code adapted from Robert Kieffer.
 // details at https://github.com/broofa/node-uuid
 (function() {
@@ -1173,7 +409,7 @@ module.exports = function md5(buf) {
 
 }())
 
-},{}],17:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
  * in FIPS PUB 180-1
@@ -1276,7 +512,7 @@ module.exports = function sha1(buf) {
   return helpers.hash(buf, core_sha1, 20, true);
 };
 
-},{"./helpers":13}],18:[function(require,module,exports){
+},{"./helpers":2}],7:[function(require,module,exports){
 
 /**
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-256, as defined
@@ -1357,7 +593,7 @@ module.exports = function sha256(buf) {
   return helpers.hash(buf, core_sha256, 32, true);
 };
 
-},{"./helpers":13}],19:[function(require,module,exports){
+},{"./helpers":2}],8:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -1412,7 +648,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],20:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var base64 = require('base64-js')
 var ieee754 = require('ieee754')
 
@@ -2470,7 +1706,7 @@ function assert (test, message) {
   if (!test) throw new Error(message || 'Failed assertion')
 }
 
-},{"base64-js":21,"ieee754":22}],21:[function(require,module,exports){
+},{"base64-js":10,"ieee754":11}],10:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -2593,7 +1829,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	module.exports.fromByteArray = uint8ToBase64
 }())
 
-},{}],22:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -2679,6 +1915,701 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
+},{}],12:[function(require,module,exports){
+"use strict";
+var Promise = require("./promise/promise").Promise;
+var polyfill = require("./promise/polyfill").polyfill;
+exports.Promise = Promise;
+exports.polyfill = polyfill;
+},{"./promise/polyfill":17,"./promise/promise":18}],13:[function(require,module,exports){
+"use strict";
+/* global toString */
+
+var isArray = require("./utils").isArray;
+var isFunction = require("./utils").isFunction;
+
+/**
+  Returns a promise that is fulfilled when all the given promises have been
+  fulfilled, or rejected if any of them become rejected. The return promise
+  is fulfilled with an array that gives all the values in the order they were
+  passed in the `promises` array argument.
+
+  Example:
+
+  ```javascript
+  var promise1 = RSVP.resolve(1);
+  var promise2 = RSVP.resolve(2);
+  var promise3 = RSVP.resolve(3);
+  var promises = [ promise1, promise2, promise3 ];
+
+  RSVP.all(promises).then(function(array){
+    // The array here would be [ 1, 2, 3 ];
+  });
+  ```
+
+  If any of the `promises` given to `RSVP.all` are rejected, the first promise
+  that is rejected will be given as an argument to the returned promises's
+  rejection handler. For example:
+
+  Example:
+
+  ```javascript
+  var promise1 = RSVP.resolve(1);
+  var promise2 = RSVP.reject(new Error("2"));
+  var promise3 = RSVP.reject(new Error("3"));
+  var promises = [ promise1, promise2, promise3 ];
+
+  RSVP.all(promises).then(function(array){
+    // Code here never runs because there are rejected promises!
+  }, function(error) {
+    // error.message === "2"
+  });
+  ```
+
+  @method all
+  @for RSVP
+  @param {Array} promises
+  @param {String} label
+  @return {Promise} promise that is fulfilled when all `promises` have been
+  fulfilled, or rejected if any of them become rejected.
+*/
+function all(promises) {
+  /*jshint validthis:true */
+  var Promise = this;
+
+  if (!isArray(promises)) {
+    throw new TypeError('You must pass an array to all.');
+  }
+
+  return new Promise(function(resolve, reject) {
+    var results = [], remaining = promises.length,
+    promise;
+
+    if (remaining === 0) {
+      resolve([]);
+    }
+
+    function resolver(index) {
+      return function(value) {
+        resolveAll(index, value);
+      };
+    }
+
+    function resolveAll(index, value) {
+      results[index] = value;
+      if (--remaining === 0) {
+        resolve(results);
+      }
+    }
+
+    for (var i = 0; i < promises.length; i++) {
+      promise = promises[i];
+
+      if (promise && isFunction(promise.then)) {
+        promise.then(resolver(i), reject);
+      } else {
+        resolveAll(i, promise);
+      }
+    }
+  });
+}
+
+exports.all = all;
+},{"./utils":22}],14:[function(require,module,exports){
+(function (process,global){
+"use strict";
+var browserGlobal = (typeof window !== 'undefined') ? window : {};
+var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
+var local = (typeof global !== 'undefined') ? global : this;
+
+// node
+function useNextTick() {
+  return function() {
+    process.nextTick(flush);
+  };
+}
+
+function useMutationObserver() {
+  var iterations = 0;
+  var observer = new BrowserMutationObserver(flush);
+  var node = document.createTextNode('');
+  observer.observe(node, { characterData: true });
+
+  return function() {
+    node.data = (iterations = ++iterations % 2);
+  };
+}
+
+function useSetTimeout() {
+  return function() {
+    local.setTimeout(flush, 1);
+  };
+}
+
+var queue = [];
+function flush() {
+  for (var i = 0; i < queue.length; i++) {
+    var tuple = queue[i];
+    var callback = tuple[0], arg = tuple[1];
+    callback(arg);
+  }
+  queue = [];
+}
+
+var scheduleFlush;
+
+// Decide what async method to use to triggering processing of queued callbacks:
+if (typeof process !== 'undefined' && {}.toString.call(process) === '[object process]') {
+  scheduleFlush = useNextTick();
+} else if (BrowserMutationObserver) {
+  scheduleFlush = useMutationObserver();
+} else {
+  scheduleFlush = useSetTimeout();
+}
+
+function asap(callback, arg) {
+  var length = queue.push([callback, arg]);
+  if (length === 1) {
+    // If length is 1, that means that we need to schedule an async flush.
+    // If additional callbacks are queued before the queue is flushed, they
+    // will be processed by this flush that we are scheduling.
+    scheduleFlush();
+  }
+}
+
+exports.asap = asap;
+}).call(this,require("/home/cdr/encapsule/onmexpresstest0/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"/home/cdr/encapsule/onmexpresstest0/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":8}],15:[function(require,module,exports){
+"use strict";
+/**
+  `RSVP.Promise.cast` returns the same promise if that promise shares a constructor
+  with the promise being casted.
+
+  Example:
+
+  ```javascript
+  var promise = RSVP.resolve(1);
+  var casted = RSVP.Promise.cast(promise);
+
+  console.log(promise === casted); // true
+  ```
+
+  In the case of a promise whose constructor does not match, it is assimilated.
+  The resulting promise will fulfill or reject based on the outcome of the
+  promise being casted.
+
+  In the case of a non-promise, a promise which will fulfill with that value is
+  returned.
+
+  Example:
+
+  ```javascript
+  var value = 1; // could be a number, boolean, string, undefined...
+  var casted = RSVP.Promise.cast(value);
+
+  console.log(value === casted); // false
+  console.log(casted instanceof RSVP.Promise) // true
+
+  casted.then(function(val) {
+    val === value // => true
+  });
+  ```
+
+  `RSVP.Promise.cast` is similar to `RSVP.resolve`, but `RSVP.Promise.cast` differs in the
+  following ways:
+  * `RSVP.Promise.cast` serves as a memory-efficient way of getting a promise, when you
+  have something that could either be a promise or a value. RSVP.resolve
+  will have the same effect but will create a new promise wrapper if the
+  argument is a promise.
+  * `RSVP.Promise.cast` is a way of casting incoming thenables or promise subclasses to
+  promises of the exact class specified, so that the resulting object's `then` is
+  ensured to have the behavior of the constructor you are calling cast on (i.e., RSVP.Promise).
+
+  @method cast
+  @for RSVP
+  @param {Object} object to be casted
+  @return {Promise} promise that is fulfilled when all properties of `promises`
+  have been fulfilled, or rejected if any of them become rejected.
+*/
+
+
+function cast(object) {
+  /*jshint validthis:true */
+  if (object && typeof object === 'object' && object.constructor === this) {
+    return object;
+  }
+
+  var Promise = this;
+
+  return new Promise(function(resolve) {
+    resolve(object);
+  });
+}
+
+exports.cast = cast;
+},{}],16:[function(require,module,exports){
+"use strict";
+var config = {
+  instrument: false
+};
+
+function configure(name, value) {
+  if (arguments.length === 2) {
+    config[name] = value;
+  } else {
+    return config[name];
+  }
+}
+
+exports.config = config;
+exports.configure = configure;
+},{}],17:[function(require,module,exports){
+"use strict";
+var RSVPPromise = require("./promise").Promise;
+var isFunction = require("./utils").isFunction;
+
+function polyfill() {
+  var es6PromiseSupport = 
+    "Promise" in window &&
+    // Some of these methods are missing from
+    // Firefox/Chrome experimental implementations
+    "cast" in window.Promise &&
+    "resolve" in window.Promise &&
+    "reject" in window.Promise &&
+    "all" in window.Promise &&
+    "race" in window.Promise &&
+    // Older version of the spec had a resolver object
+    // as the arg rather than a function
+    (function() {
+      var resolve;
+      new window.Promise(function(r) { resolve = r; });
+      return isFunction(resolve);
+    }());
+
+  if (!es6PromiseSupport) {
+    window.Promise = RSVPPromise;
+  }
+}
+
+exports.polyfill = polyfill;
+},{"./promise":18,"./utils":22}],18:[function(require,module,exports){
+"use strict";
+var config = require("./config").config;
+var configure = require("./config").configure;
+var objectOrFunction = require("./utils").objectOrFunction;
+var isFunction = require("./utils").isFunction;
+var now = require("./utils").now;
+var cast = require("./cast").cast;
+var all = require("./all").all;
+var race = require("./race").race;
+var staticResolve = require("./resolve").resolve;
+var staticReject = require("./reject").reject;
+var asap = require("./asap").asap;
+
+var counter = 0;
+
+config.async = asap; // default async is asap;
+
+function Promise(resolver) {
+  if (!isFunction(resolver)) {
+    throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
+  }
+
+  if (!(this instanceof Promise)) {
+    throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
+  }
+
+  this._subscribers = [];
+
+  invokeResolver(resolver, this);
+}
+
+function invokeResolver(resolver, promise) {
+  function resolvePromise(value) {
+    resolve(promise, value);
+  }
+
+  function rejectPromise(reason) {
+    reject(promise, reason);
+  }
+
+  try {
+    resolver(resolvePromise, rejectPromise);
+  } catch(e) {
+    rejectPromise(e);
+  }
+}
+
+function invokeCallback(settled, promise, callback, detail) {
+  var hasCallback = isFunction(callback),
+      value, error, succeeded, failed;
+
+  if (hasCallback) {
+    try {
+      value = callback(detail);
+      succeeded = true;
+    } catch(e) {
+      failed = true;
+      error = e;
+    }
+  } else {
+    value = detail;
+    succeeded = true;
+  }
+
+  if (handleThenable(promise, value)) {
+    return;
+  } else if (hasCallback && succeeded) {
+    resolve(promise, value);
+  } else if (failed) {
+    reject(promise, error);
+  } else if (settled === FULFILLED) {
+    resolve(promise, value);
+  } else if (settled === REJECTED) {
+    reject(promise, value);
+  }
+}
+
+var PENDING   = void 0;
+var SEALED    = 0;
+var FULFILLED = 1;
+var REJECTED  = 2;
+
+function subscribe(parent, child, onFulfillment, onRejection) {
+  var subscribers = parent._subscribers;
+  var length = subscribers.length;
+
+  subscribers[length] = child;
+  subscribers[length + FULFILLED] = onFulfillment;
+  subscribers[length + REJECTED]  = onRejection;
+}
+
+function publish(promise, settled) {
+  var child, callback, subscribers = promise._subscribers, detail = promise._detail;
+
+  for (var i = 0; i < subscribers.length; i += 3) {
+    child = subscribers[i];
+    callback = subscribers[i + settled];
+
+    invokeCallback(settled, child, callback, detail);
+  }
+
+  promise._subscribers = null;
+}
+
+Promise.prototype = {
+  constructor: Promise,
+
+  _state: undefined,
+  _detail: undefined,
+  _subscribers: undefined,
+
+  then: function(onFulfillment, onRejection) {
+    var promise = this;
+
+    var thenPromise = new this.constructor(function() {});
+
+    if (this._state) {
+      var callbacks = arguments;
+      config.async(function invokePromiseCallback() {
+        invokeCallback(promise._state, thenPromise, callbacks[promise._state - 1], promise._detail);
+      });
+    } else {
+      subscribe(this, thenPromise, onFulfillment, onRejection);
+    }
+
+    return thenPromise;
+  },
+
+  'catch': function(onRejection) {
+    return this.then(null, onRejection);
+  }
+};
+
+Promise.all = all;
+Promise.cast = cast;
+Promise.race = race;
+Promise.resolve = staticResolve;
+Promise.reject = staticReject;
+
+function handleThenable(promise, value) {
+  var then = null,
+  resolved;
+
+  try {
+    if (promise === value) {
+      throw new TypeError("A promises callback cannot return that same promise.");
+    }
+
+    if (objectOrFunction(value)) {
+      then = value.then;
+
+      if (isFunction(then)) {
+        then.call(value, function(val) {
+          if (resolved) { return true; }
+          resolved = true;
+
+          if (value !== val) {
+            resolve(promise, val);
+          } else {
+            fulfill(promise, val);
+          }
+        }, function(val) {
+          if (resolved) { return true; }
+          resolved = true;
+
+          reject(promise, val);
+        });
+
+        return true;
+      }
+    }
+  } catch (error) {
+    if (resolved) { return true; }
+    reject(promise, error);
+    return true;
+  }
+
+  return false;
+}
+
+function resolve(promise, value) {
+  if (promise === value) {
+    fulfill(promise, value);
+  } else if (!handleThenable(promise, value)) {
+    fulfill(promise, value);
+  }
+}
+
+function fulfill(promise, value) {
+  if (promise._state !== PENDING) { return; }
+  promise._state = SEALED;
+  promise._detail = value;
+
+  config.async(publishFulfillment, promise);
+}
+
+function reject(promise, reason) {
+  if (promise._state !== PENDING) { return; }
+  promise._state = SEALED;
+  promise._detail = reason;
+
+  config.async(publishRejection, promise);
+}
+
+function publishFulfillment(promise) {
+  publish(promise, promise._state = FULFILLED);
+}
+
+function publishRejection(promise) {
+  publish(promise, promise._state = REJECTED);
+}
+
+exports.Promise = Promise;
+},{"./all":13,"./asap":14,"./cast":15,"./config":16,"./race":19,"./reject":20,"./resolve":21,"./utils":22}],19:[function(require,module,exports){
+"use strict";
+/* global toString */
+var isArray = require("./utils").isArray;
+
+/**
+  `RSVP.race` allows you to watch a series of promises and act as soon as the
+  first promise given to the `promises` argument fulfills or rejects.
+
+  Example:
+
+  ```javascript
+  var promise1 = new RSVP.Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve("promise 1");
+    }, 200);
+  });
+
+  var promise2 = new RSVP.Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve("promise 2");
+    }, 100);
+  });
+
+  RSVP.race([promise1, promise2]).then(function(result){
+    // result === "promise 2" because it was resolved before promise1
+    // was resolved.
+  });
+  ```
+
+  `RSVP.race` is deterministic in that only the state of the first completed
+  promise matters. For example, even if other promises given to the `promises`
+  array argument are resolved, but the first completed promise has become
+  rejected before the other promises became fulfilled, the returned promise
+  will become rejected:
+
+  ```javascript
+  var promise1 = new RSVP.Promise(function(resolve, reject){
+    setTimeout(function(){
+      resolve("promise 1");
+    }, 200);
+  });
+
+  var promise2 = new RSVP.Promise(function(resolve, reject){
+    setTimeout(function(){
+      reject(new Error("promise 2"));
+    }, 100);
+  });
+
+  RSVP.race([promise1, promise2]).then(function(result){
+    // Code here never runs because there are rejected promises!
+  }, function(reason){
+    // reason.message === "promise2" because promise 2 became rejected before
+    // promise 1 became fulfilled
+  });
+  ```
+
+  @method race
+  @for RSVP
+  @param {Array} promises array of promises to observe
+  @param {String} label optional string for describing the promise returned.
+  Useful for tooling.
+  @return {Promise} a promise that becomes fulfilled with the value the first
+  completed promises is resolved with if the first completed promise was
+  fulfilled, or rejected with the reason that the first completed promise
+  was rejected with.
+*/
+function race(promises) {
+  /*jshint validthis:true */
+  var Promise = this;
+
+  if (!isArray(promises)) {
+    throw new TypeError('You must pass an array to race.');
+  }
+  return new Promise(function(resolve, reject) {
+    var results = [], promise;
+
+    for (var i = 0; i < promises.length; i++) {
+      promise = promises[i];
+
+      if (promise && typeof promise.then === 'function') {
+        promise.then(resolve, reject);
+      } else {
+        resolve(promise);
+      }
+    }
+  });
+}
+
+exports.race = race;
+},{"./utils":22}],20:[function(require,module,exports){
+"use strict";
+/**
+  `RSVP.reject` returns a promise that will become rejected with the passed
+  `reason`. `RSVP.reject` is essentially shorthand for the following:
+
+  ```javascript
+  var promise = new RSVP.Promise(function(resolve, reject){
+    reject(new Error('WHOOPS'));
+  });
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  var promise = RSVP.reject(new Error('WHOOPS'));
+
+  promise.then(function(value){
+    // Code here doesn't run because the promise is rejected!
+  }, function(reason){
+    // reason.message === 'WHOOPS'
+  });
+  ```
+
+  @method reject
+  @for RSVP
+  @param {Any} reason value that the returned promise will be rejected with.
+  @param {String} label optional string for identifying the returned promise.
+  Useful for tooling.
+  @return {Promise} a promise that will become rejected with the given
+  `reason`.
+*/
+function reject(reason) {
+  /*jshint validthis:true */
+  var Promise = this;
+
+  return new Promise(function (resolve, reject) {
+    reject(reason);
+  });
+}
+
+exports.reject = reject;
+},{}],21:[function(require,module,exports){
+"use strict";
+/**
+  `RSVP.resolve` returns a promise that will become fulfilled with the passed
+  `value`. `RSVP.resolve` is essentially shorthand for the following:
+
+  ```javascript
+  var promise = new RSVP.Promise(function(resolve, reject){
+    resolve(1);
+  });
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  Instead of writing the above, your code now simply becomes the following:
+
+  ```javascript
+  var promise = RSVP.resolve(1);
+
+  promise.then(function(value){
+    // value === 1
+  });
+  ```
+
+  @method resolve
+  @for RSVP
+  @param {Any} value value that the returned promise will be resolved with
+  @param {String} label optional string for identifying the returned promise.
+  Useful for tooling.
+  @return {Promise} a promise that will become fulfilled with the given
+  `value`
+*/
+function resolve(value) {
+  /*jshint validthis:true */
+  var Promise = this;
+  return new Promise(function(resolve, reject) {
+    resolve(value);
+  });
+}
+
+exports.resolve = resolve;
+},{}],22:[function(require,module,exports){
+"use strict";
+function objectOrFunction(x) {
+  return isFunction(x) || (typeof x === "object" && x !== null);
+}
+
+function isFunction(x) {
+  return typeof x === "function";
+}
+
+function isArray(x) {
+  return Object.prototype.toString.call(x) === "[object Array]";
+}
+
+// Date.now is not available in browsers < IE9
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#Compatibility
+var now = Date.now || function() { return new Date().getTime(); };
+
+
+exports.objectOrFunction = objectOrFunction;
+exports.isFunction = isFunction;
+exports.isArray = isArray;
+exports.now = now;
 },{}],23:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.1.0
@@ -12041,7 +11972,97 @@ return jQuery;
 }).call(this);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":20,"crypto":14}],25:[function(require,module,exports){
+},{"buffer":9,"crypto":3}],25:[function(require,module,exports){
+
+var $ = require('jquery') // (window); <--- surprised this appears to be unnecessary based on StackOverflow articles.
+var Promise = require('es6-promise').Promise;
+
+var errorMessageFromjqXHR = function(jqXHR_, textStatus_, errorThrown_) {
+    return "HTTP error " + jqXHR_.status + ". " + jqXHR_.statusText + ": " + jqXHR_.responseText;
+}
+
+var requestUrl = function (baseUrl_, routeSuffix_) {
+    var baseUrl = (baseUrl_ != null) && baseUrl_ || ".";
+    var slashTerminated = baseUrl_.indexOf('/', baseUrl_.length - 1) !== -1;
+
+    return baseUrl + (!slashTerminated && "/" || "") + routeSuffix_;
+}
+
+var createAjaxRequestPromise = function(httpMethod_, relativeUrl_, dataObject_) {
+    return new Promise( function(resolve_, reject_) {
+        $.ajax({
+            type: httpMethod_,
+            url: relativeUrl_,
+            cache: false,
+            data: dataObject_,
+            dataType: "json", // This is the expected return type
+            success: function(data_) {
+                resolve_(data_);
+            },
+            error: function(jqXHR_, textStatus_, errorThrown_) {
+                reject_(new Error(errorMessageFromjqXHR(jqXHR_, textStatus_, errorThrown_)));
+            }
+        });
+    });
+}
+
+// GET /meta
+module.exports.getMeta = function(baseUrl_) {
+    return createAjaxRequestPromise("GET", requestUrl(baseUrl_, "meta"));
+}
+
+// GET /models
+module.exports.getModels = function(baseUrl_) {
+     return createAjaxRequestPromise("GET", requestUrl(baseUrl_, "models"));
+}
+
+// GET /stores
+module.exports.getStores = function(baseUrl_) {
+    return createAjaxRequestPromise("GET", requestUrl(baseUrl_, "stores"));
+}
+
+// GET /addresses/:store?/:address?
+module.exports.getAddresses = function(baseUrl_, storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("GET", requestUrl(baseUrl_, "addresses"), { store: storeUuid_, address: addressHash_ });
+}
+
+// GET /data/:store?/:address?
+module.exports.getData = function(baseUrl_, storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("GET", requestUrl(baseUrl_, "data"), { store: storeUuid_, address: addressHash_});
+}
+
+// POST /create/store
+module.exports.createStore = function(baseUrl_, modelName_) {
+    return createAjaxRequestPromise("POST", requestUrl(baseUrl_, "create/store"), { model: modelName_ });
+}
+
+// POST /create/component
+module.exports.createComponent = function(baseUrl_, storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("POST", requestUrl(baseUrl_, "create/component"), { store: storeUuid_, address: addressHash_ });
+}
+
+// POST /update/component
+module.exports.updateComponent = function(baseUrl_, storeUuid_, addressHash_, componentData_) {
+    return createAjaxRequestPromise("POST", requestUrl(baseUrl_, "update/component"), { store: storeUuid_, address: addressHash_, data: componentData_ });
+}
+
+// DELETE /remove/stores
+module.exports.removeStores = function(baseUrl_) {
+    return createAjaxRequestPromise("DELETE", requestUrl(baseUrl_, "remove/stores"));
+}
+
+// DELETE /remove/store
+module.exports.removeStore = function(baseUrl_, storeUuid_) {
+    return createAjaxRequestPromise("DELETE", requestUrl(baseUrl_, "remove/store"), { store: storeUuid_ });
+}
+
+// DELETE /remove/component
+module.exports.removeComponent = function(baseUrl_, storeUuid_, addressHash_) {
+    return createAjaxRequestPromise("DELETE", requestUrl(baseUrl_, "remove/component"), { store: storeUuid_, address: addressHash_ });
+}
+
+
+},{"es6-promise":12,"jquery":23}],26:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -12332,7 +12353,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -12474,7 +12495,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-model":29,"./ONMjs-core-namespace":30,"./ONMjs-core-store":32}],27:[function(require,module,exports){
+},{"./ONMjs-core-model":30,"./ONMjs-core-namespace":31,"./ONMjs-core-store":33}],28:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -12598,7 +12619,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -13299,7 +13320,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-address-token":27}],29:[function(require,module,exports){
+},{"./ONMjs-core-address-token":28}],30:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -13803,7 +13824,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-address":28,"./ONMjs-core-address-token":27,"./encapsule-lib-javascript":34,"node-uuid":24}],30:[function(require,module,exports){
+},{"./ONMjs-core-address":29,"./ONMjs-core-address-token":28,"./encapsule-lib-javascript":35,"node-uuid":24}],31:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -14134,7 +14155,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-address":28,"./ONMjs-core-address-binder":25,"./ONMjs-core-address-token":27}],31:[function(require,module,exports){
+},{"./ONMjs-core-address":29,"./ONMjs-core-address-binder":26,"./ONMjs-core-address-token":28}],32:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -14310,7 +14331,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-namespace":30,"./encapsule-lib-javascript":34}],32:[function(require,module,exports){
+},{"./ONMjs-core-namespace":31,"./encapsule-lib-javascript":35}],33:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -14643,7 +14664,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{"./ONMjs-core-address-binder":25,"./ONMjs-core-address-token":27,"./ONMjs-core-namespace":30,"./ONMjs-core-store-reifier":31,"./encapsule-lib-javascript":34,"node-uuid":24}],33:[function(require,module,exports){
+},{"./ONMjs-core-address-binder":26,"./ONMjs-core-address-token":28,"./ONMjs-core-namespace":31,"./ONMjs-core-store-reifier":32,"./encapsule-lib-javascript":35,"node-uuid":24}],34:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -14738,7 +14759,7 @@ BLOG: http://blog.encapsule.org TWITTER: https://twitter.com/Encapsule
 
 }).call(this);
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 /*
 ------------------------------------------------------------------------------
 
@@ -14834,7 +14855,7 @@ Low-level library routines inspired by (and often copied) from http://coffeescri
 
 }).call(this);
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 // onm node package index.js
 
 module.exports.Model = require('./dist/node/ONMjs-core-model');
@@ -14845,7 +14866,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 
 
-},{"./dist/node/ONMjs-core-address-store":26,"./dist/node/ONMjs-core-model":29,"./dist/node/ONMjs-core-store":32,"./dist/node/encapsule-lib-backchannel":33,"./dist/node/encapsule-lib-javascript":34}],36:[function(require,module,exports){
+},{"./dist/node/ONMjs-core-address-store":27,"./dist/node/ONMjs-core-model":30,"./dist/node/ONMjs-core-store":33,"./dist/node/encapsule-lib-backchannel":34,"./dist/node/encapsule-lib-javascript":35}],37:[function(require,module,exports){
 (function() {
   var util;
 
@@ -14984,7 +15005,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-contract":38,"./scdl-copyright":39,"./scdl-license":40,"./scdl-machine":41,"./scdl-organization":43,"./scdl-person":44,"./scdl-socket":47,"./scdl-specification":48,"./scdl-system":49,"./scdl-type":50,"onm":35}],37:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-contract":39,"./scdl-copyright":40,"./scdl-license":41,"./scdl-machine":42,"./scdl-organization":44,"./scdl-person":45,"./scdl-socket":48,"./scdl-specification":49,"./scdl-system":50,"./scdl-type":51,"onm":36}],38:[function(require,module,exports){
 (function() {
   var onmutil, uuid;
 
@@ -15083,7 +15104,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"node-uuid":24,"onm":35}],38:[function(require,module,exports){
+},{"node-uuid":24,"onm":36}],39:[function(require,module,exports){
 (function() {
   var common;
 
@@ -15115,7 +15136,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-nodes":42}],39:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-nodes":43}],40:[function(require,module,exports){
 (function() {
   var common;
 
@@ -15133,7 +15154,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37}],40:[function(require,module,exports){
+},{"./scdl-common-properties":38}],41:[function(require,module,exports){
 (function() {
   var common;
 
@@ -15151,7 +15172,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37}],41:[function(require,module,exports){
+},{"./scdl-common-properties":38}],42:[function(require,module,exports){
 (function() {
   var common, onm, pins;
 
@@ -15273,7 +15294,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-pins":45,"onm":35}],42:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-pins":46,"onm":36}],43:[function(require,module,exports){
 (function() {
   var Node, common, pins;
 
@@ -15324,7 +15345,7 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-pins":45}],43:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-pins":46}],44:[function(require,module,exports){
 (function() {
   var common;
 
@@ -15342,9 +15363,9 @@ module.exports.util = require('./dist/node/encapsule-lib-javascript');
 
 }).call(this);
 
-},{"./scdl-common-properties":37}],44:[function(require,module,exports){
-module.exports=require(43)
-},{"./scdl-common-properties":37}],45:[function(require,module,exports){
+},{"./scdl-common-properties":38}],45:[function(require,module,exports){
+module.exports=require(44)
+},{"./scdl-common-properties":38}],46:[function(require,module,exports){
 (function() {
   var InputPin, OutputPin, common, onm;
 
@@ -15481,7 +15502,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"onm":35}],46:[function(require,module,exports){
+},{"./scdl-common-properties":38,"onm":36}],47:[function(require,module,exports){
 (function() {
   var onm, uuid;
 
@@ -15520,7 +15541,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"node-uuid":24,"onm":35}],47:[function(require,module,exports){
+},{"node-uuid":24,"onm":36}],48:[function(require,module,exports){
 (function() {
   var common, pins;
 
@@ -15542,7 +15563,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-pins":45}],48:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-pins":46}],49:[function(require,module,exports){
 (function() {
   var onmutil;
 
@@ -15782,7 +15803,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"onm":35}],49:[function(require,module,exports){
+},{"./scdl-common-properties":38,"onm":36}],50:[function(require,module,exports){
 (function() {
   var common, onm, pins;
 
@@ -15931,7 +15952,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"./scdl-nodes":42,"./scdl-pins":45,"onm":35}],50:[function(require,module,exports){
+},{"./scdl-common-properties":38,"./scdl-nodes":43,"./scdl-pins":46,"onm":36}],51:[function(require,module,exports){
 (function() {
   var common, onm;
 
@@ -16005,7 +16026,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-common-properties":37,"onm":35}],51:[function(require,module,exports){
+},{"./scdl-common-properties":38,"onm":36}],52:[function(require,module,exports){
 (function() {
   var onm, uuid;
 
@@ -16032,7 +16053,7 @@ module.exports=require(43)
 
 }).call(this);
 
-},{"./scdl-catalogue":36,"./scdl-semantic-bindings":46,"node-uuid":24,"onm":35}],52:[function(require,module,exports){
+},{"./scdl-catalogue":37,"./scdl-semantic-bindings":47,"node-uuid":24,"onm":36}],53:[function(require,module,exports){
 // Data model declaration for Encapsule Project's
 // Software Circuit Description Language (SCDL).
 // These 
@@ -16062,4 +16083,4 @@ module.exports.License = require('./dist/node/scdl-license')
 
 
 
-},{"./dist/node/scdl":51,"./dist/node/scdl-catalogue":36,"./dist/node/scdl-contract":38,"./dist/node/scdl-copyright":39,"./dist/node/scdl-license":40,"./dist/node/scdl-machine":41,"./dist/node/scdl-organization":43,"./dist/node/scdl-person":44,"./dist/node/scdl-semantic-bindings":46,"./dist/node/scdl-socket":47,"./dist/node/scdl-specification":48,"./dist/node/scdl-system":49,"./dist/node/scdl-type":50}]},{},[1])
+},{"./dist/node/scdl":52,"./dist/node/scdl-catalogue":37,"./dist/node/scdl-contract":39,"./dist/node/scdl-copyright":40,"./dist/node/scdl-license":41,"./dist/node/scdl-machine":42,"./dist/node/scdl-organization":44,"./dist/node/scdl-person":45,"./dist/node/scdl-semantic-bindings":47,"./dist/node/scdl-socket":48,"./dist/node/scdl-specification":49,"./dist/node/scdl-system":50,"./dist/node/scdl-type":51}]},{},[1])
